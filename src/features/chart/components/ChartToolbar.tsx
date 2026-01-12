@@ -15,19 +15,19 @@ export function ChartToolbar() {
   const [currentInterval, setCurrentInterval] = useAtom(intervalAtom);
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-bg-secondary border-b border-border-primary">
-      <span className="text-sm text-gray-400">时间周期：</span>
-      <div className="flex gap-1">
+    <div className="flex flex-wrap items-center gap-3 px-4 sm:px-6 py-3 bg-bg-secondary/80 border-b border-white/10">
+      <span className="text-sm text-slate-400">时间周期</span>
+      <div className="flex flex-wrap gap-2">
         {intervals.map((interval) => (
           <button
             key={interval.value}
             onClick={() => setCurrentInterval(interval.value)}
             className={`
-              px-3 py-1.5 text-sm rounded transition-colors
+              px-3.5 py-1.5 text-sm rounded-full border transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 focus-visible:ring-offset-0
               ${
                 currentInterval === interval.value
-                  ? 'bg-up text-white font-medium'
-                  : 'bg-bg-tertiary text-gray-300 hover:bg-bg-primary'
+                  ? 'bg-up/80 text-white font-medium border-up/40 shadow-[0_8px_20px_-12px_rgba(20,184,166,0.9)]'
+                  : 'bg-bg-tertiary/80 text-slate-300 border-white/10 hover:bg-bg-primary/80'
               }
             `}
           >

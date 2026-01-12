@@ -3,6 +3,10 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        heading: ['"Space Grotesk"', 'sans-serif'],
+        body: ['"DM Sans"', 'sans-serif'],
+      },
       colors: {
         // 交易主题色（涨红跌绿 - 中国习惯）
         up: {
@@ -15,6 +19,11 @@ export default {
           light: '#fca5a5',
           dark: '#b91c1c',
         },
+        accent: {
+          DEFAULT: '#f59e0b',
+          light: '#fbbf24',
+          soft: '#fde68a',
+        },
         // 背景色
         bg: {
           primary: '#0f172a',
@@ -26,6 +35,20 @@ export default {
           primary: '#334155',
           secondary: '#475569',
         },
+      },
+      keyframes: {
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'rise-in': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 0.6s ease-out',
+        'rise-in': 'rise-in 0.7s ease-out',
       },
     },
   },

@@ -14,9 +14,9 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://api.binance.com',
+        target: 'https://data-api.binance.vision',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        // rewrite: (path) => path.replace(/^\/api/, ''), // Remove rewrite to keep /api prefix
       },
     },
   },

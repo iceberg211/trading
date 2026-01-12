@@ -1,15 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "DM Sans", system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0f172a;
+  color: #e2e8f0;
+  background-color: #0b1120;
   
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -28,8 +30,35 @@ body {
   display: flex;
   min-width: 320px;
   min-height: 100vh;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(56, 189, 248, 0.16), transparent 42%),
+    radial-gradient(circle at 86% 82%, rgba(251, 191, 36, 0.18), transparent 46%),
+    linear-gradient(180deg, #0b1120 0%, #0f172a 45%, #0b1120 100%);
+  background-attachment: fixed;
 }
 
 #root {
   width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+  background-size: 120px 120px;
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-rise-in {
+    animation: none !important;
+  }
 }

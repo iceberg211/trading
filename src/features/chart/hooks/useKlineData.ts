@@ -109,7 +109,7 @@ export function useKlineData() {
   useEffect(() => {
     // 构建 WebSocket URL（使用 Combined Stream）
     const streamName = `${symbol.toLowerCase()}@kline_${interval}`;
-    const wsUrl = `wss://stream.binance.com:9443/stream?streams=${streamName}`;
+    const wsUrl = `wss://data-stream.binance.vision/stream?streams=${streamName}`;
 
     // 创建 WebSocket 管理器
     const wsManager = new WebSocketManager({
