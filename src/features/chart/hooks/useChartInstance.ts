@@ -137,11 +137,18 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
     if (shouldReset) {
       candleSeries.setData(klineData.map(toChartCandle));
       
-      // 重要：在切换交易对后，确保价格轴和时间轴都自动适配
-      chart.timeScale().fitContent();
+      // 只在首次加载时自动适配内容范围
+      // 后续更新不强制改变用户的滚动位置
+      if (lastDataStartTimeRef.current === null) {
+        chart.timeScale().fitContent();
+        autoScrollRef.current = true;
+      } else {
+        // 切换交易对时：适配新数据范围，但保留自动滚动状态
+        chart.timeScale().fitContent();
+        // 让用户决定是否跟随最新数据
+      }
       
       // 显式触发价格轴的自动缩放
-      // 通过设置 autoScale 为 true 确保 Y 轴能正确适配新的价格范围
       candleSeries.applyOptions({
         priceFormat: {
           type: 'price',
@@ -149,17 +156,12 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
           minMove: 0.01,
         },
       });
-      
-      // 使用 setTimeout 确保在下一帧重新计算可见范围
-      setTimeout(() => {
-        chart.timeScale().fitContent();
-      }, 0);
-      
-      autoScrollRef.current = true;
     } else {
+      // 增量更新：只更新最后一根 K 线
       const lastCandle = klineData[klineData.length - 1];
       candleSeries.update(toChartCandle(lastCandle));
 
+      // 只有当用户在最右侧时才自动滚动跟随
       if (autoScrollRef.current) {
         chart.timeScale().scrollToRealTime();
       }
