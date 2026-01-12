@@ -11,6 +11,7 @@ import {
   MockOrder,
 } from '../atoms/tradeAtom';
 import { orderBookAtom } from '@/features/orderbook/atoms/orderBookAtom';
+import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
 
 export function useTradeForm() {
   const [form, setForm] = useAtom(tradeFormAtom);
@@ -18,6 +19,9 @@ export function useTradeForm() {
   const [submitting, setSubmitting] = useAtom(orderSubmittingAtom);
   const [orders, setOrders] = useAtom(mockOrdersAtom);
   const orderBook = useAtomValue(orderBookAtom);
+  const symbolConfig = useAtomValue(symbolConfigAtom);
+
+  const { qtyPrecision } = symbolConfig;
 
   // 获取当前最优价格
   const getBestPrice = useCallback((side: OrderSide): string => {
@@ -71,11 +75,11 @@ export function useTradeForm() {
   const setTotal = useCallback((total: string) => {
     setForm((prev) => {
       const newAmount = prev.price && total && parseFloat(prev.price) > 0
-        ? new Decimal(total).div(prev.price).toFixed(6)
+        ? new Decimal(total).div(prev.price).toFixed(qtyPrecision)
         : '';
       return { ...prev, total, amount: newAmount };
     });
-  }, [setForm]);
+  }, [setForm, qtyPrecision]);
 
   // 百分比快捷设置
   const setPercentage = useCallback((percentage: number) => {
@@ -87,19 +91,19 @@ export function useTradeForm() {
         // 买入：用 USDT 余额计算
         const total = maxValue.times(percentage).div(100).toFixed(2);
         const amount = prev.price && parseFloat(prev.price) > 0
-          ? new Decimal(total).div(prev.price).toFixed(6)
+          ? new Decimal(total).div(prev.price).toFixed(qtyPrecision)
           : '';
         return { ...prev, percentageUsed: percentage, total, amount };
       } else {
         // 卖出：用 BTC 余额计算
-        const amount = maxValue.times(percentage).div(100).toFixed(6);
+        const amount = maxValue.times(percentage).div(100).toFixed(qtyPrecision);
         const total = prev.price
           ? new Decimal(prev.price).times(amount).toFixed(2)
           : '';
         return { ...prev, percentageUsed: percentage, amount, total };
       }
     });
-  }, [setForm, balance]);
+  }, [setForm, balance, qtyPrecision]);
 
   // 提交订单（模拟）
   const submitOrder = useCallback(async () => {

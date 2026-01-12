@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAtomValue } from 'jotai';
-import { createChart, IChartApi, ISeriesApi } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, type LogicalRange } from 'lightweight-charts';
 import { klineDataAtom } from '../atoms/klineAtom';
 import type { Candle } from '@/types/binance';
 

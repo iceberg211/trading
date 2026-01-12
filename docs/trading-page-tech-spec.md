@@ -427,6 +427,19 @@ graph TD
 
 ---
 
+#### 状态管理架构 (Jotai)
+
+| Atom Group | Atoms | 说明 |
+|------------|-------|------|
+| **Symbol** | `symbolConfigAtom` | **[新增]** 当前交易对配置 (Symbol, Base, Quote, 精度) |
+| **K-Line** | `klineDataAtom`<br>`intervalAtom` | K线数据、当前时间周期 |
+| **OrderBook** | `orderBookAtom` | 订单簿快照 + 增量更新 |
+| **Trade** | `tradeFormAtom` | 交易表单状态 (价格, 数量) |
+| **Global** | `wsStatusAtom` | WebSocket 连接状态 |
+
+> **交易对切换逻辑**：
+> 修改 `symbolConfigAtom` 会触发所有下游 Atom (OrderBook, Kline, Trades) 的重置与重连机制。
+
 ## 三、状态管理方案 (Jotai)
 
 ### 3.1 Atom 设计原则

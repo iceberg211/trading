@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAtomValue } from 'jotai';
 import { symbolAtom } from '@/features/chart/atoms/klineAtom';
 import { WebSocketManager } from '@/services/websocket/manager';
-import { Card, CardHeader } from '@/components/ui';
 import Decimal from 'decimal.js';
 import dayjs from 'dayjs';
 
@@ -31,7 +30,7 @@ export function RecentTrades() {
       isBuyerMaker: data.m,
     };
 
-    setTrades((prev) => [newTrade, ...prev.slice(0, 29)]);
+    setTrades((prev) => [newTrade, ...prev.slice(0, 19)]);
   }, []);
 
   useEffect(() => {
@@ -55,41 +54,45 @@ export function RecentTrades() {
   }, [symbol, handleWsMessage]);
 
   return (
-    <Card noPadding className="flex flex-col h-full">
-      <CardHeader title="最近成交" extra={<span className="text-xs text-slate-500">实时</span>} />
-      
-      {/* Table Header */}
-      <div className="grid grid-cols-3 gap-2 px-3 py-2 text-xs font-medium text-slate-500 border-b border-white/5">
-        <span>价格(USDT)</span>
-        <span className="text-right">数量(BTC)</span>
-        <span className="text-right">时间</span>
+    <div className="flex flex-col h-full bg-bg-card">
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-line flex justify-between items-center">
+        <span className="text-sm font-medium text-text-primary">Trades</span>
+        <div className="w-1.5 h-1.5 rounded-full bg-up animate-pulse" />
+      </div>
+
+      {/* Column Headers */}
+      <div className="grid grid-cols-3 gap-2 px-3 py-1 text-[10px] font-medium text-text-tertiary">
+        <span>Price(USDT)</span>
+        <span className="text-right">Amount(BTC)</span>
+        <span className="text-right">Time</span>
       </div>
 
       {/* Trade List */}
       <div className="flex-1 overflow-y-auto">
         {trades.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-slate-500 text-xs">
-            等待成交数据...
+          <div className="flex items-center justify-center h-full text-text-tertiary text-xs">
+            Waiting for trades...
           </div>
         ) : (
           trades.map((trade) => (
             <div
               key={trade.id}
-              className="grid grid-cols-3 gap-2 px-3 py-1 text-xs hover:bg-white/5 transition-colors"
+              className="grid grid-cols-3 gap-2 px-3 py-[2px] text-xs hover:bg-bg-hover transition-colors"
             >
               <span className={`font-mono ${trade.isBuyerMaker ? 'text-down' : 'text-up'}`}>
                 {new Decimal(trade.price).toFixed(2)}
               </span>
-              <span className="text-right font-mono text-slate-300">
+              <span className="text-right font-mono text-text-primary">
                 {new Decimal(trade.qty).toFixed(4)}
               </span>
-              <span className="text-right font-mono text-slate-500">
+              <span className="text-right font-mono text-text-tertiary">
                 {dayjs(trade.time).format('HH:mm:ss')}
               </span>
             </div>
           ))
         )}
       </div>
-    </Card>
+    </div>
   );
 }
