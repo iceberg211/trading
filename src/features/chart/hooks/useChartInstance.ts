@@ -27,20 +27,30 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
       width: container.clientWidth,
       height: container.clientHeight,
       layout: {
-        background: { color: '#0f172a' },
-        textColor: '#d1d5db',
+        background: { color: '#161A1E' }, // bg-bg
+        textColor: '#848E9C', // text-secondary
       },
       grid: {
-        vertLines: { color: '#334155' },
-        horzLines: { color: '#334155' },
+        vertLines: { color: '#2B3139' }, // border-line
+        horzLines: { color: '#2B3139' }, // border-line
       },
       timeScale: {
-        borderColor: '#475569',
+        borderColor: '#2B3139',
         timeVisible: true,
         secondsVisible: false,
       },
       rightPriceScale: {
-        borderColor: '#475569',
+        borderColor: '#2B3139',
+      },
+      crosshair: {
+        vertLine: {
+          color: '#5E6673',
+          labelBackgroundColor: '#474D57',
+        },
+        horzLine: {
+          color: '#5E6673',
+          labelBackgroundColor: '#474D57',
+        },
       },
     });
 
@@ -48,12 +58,12 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
 
     // 创建蜡烛图系列
     const candleSeries = chart.addCandlestickSeries({
-      upColor: '#14b8a6',
-      downColor: '#ef4444',
-      borderUpColor: '#14b8a6',
-      borderDownColor: '#ef4444',
-      wickUpColor: '#14b8a6',
-      wickDownColor: '#ef4444',
+      upColor: '#0ECB81',
+      downColor: '#F6465D',
+      borderUpColor: '#0ECB81',
+      borderDownColor: '#F6465D',
+      wickUpColor: '#0ECB81',
+      wickDownColor: '#F6465D',
     });
 
     candleSeriesRef.current = candleSeries;

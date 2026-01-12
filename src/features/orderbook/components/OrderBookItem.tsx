@@ -17,22 +17,22 @@ export function OrderBookItem({ price, qty, total, maxTotal, type }: OrderBookIt
   const formattedTotal = new Decimal(total).toFixed(2);
 
   return (
-    <div className="relative grid grid-cols-3 gap-2 px-2 py-0.5 text-xs hover:bg-white/5 group z-0 cursor-default">
-      {/* 深度背景条 */}
+    <div className="relative grid grid-cols-3 gap-2 px-3 py-[1px] text-xs hover:bg-bg-hover cursor-pointer transition-colors">
+      {/* 深度背景条 (Depth Bar) */}
       <div
-        className={`absolute top-0 right-0 bottom-0 transition-all duration-200 opacity-10 ${
-          type === 'bid' ? 'bg-up' : 'bg-down'
+        className={`absolute top-0 right-0 bottom-0 transition-all duration-200 z-0 ${
+          type === 'bid' ? 'bg-up-bg' : 'bg-down-bg'
         }`}
         style={{ width: `${width}%` }}
       />
       
-      <span className={`z-10 font-medium font-mono ${type === 'bid' ? 'text-up' : 'text-down'}`}>
+      <span className={`relative z-10 font-medium font-mono ${type === 'bid' ? 'text-up' : 'text-down'}`}>
         {formattedPrice}
       </span>
-      <span className="z-10 text-right text-slate-300 group-hover:text-white font-mono opacity-80">
+      <span className="relative z-10 text-right text-text-primary font-mono">
         {formattedQty}
       </span>
-      <span className="z-10 text-right text-slate-400 group-hover:text-slate-200 font-mono opacity-60">
+      <span className="relative z-10 text-right text-text-tertiary font-mono">
         {formattedTotal}
       </span>
     </div>

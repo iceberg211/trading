@@ -7,33 +7,42 @@ export default {
         heading: ['"Space Grotesk"', 'sans-serif'],
         body: ['"DM Sans"', 'sans-serif'],
       },
-      colors: {
-        // 交易主题色（涨红跌绿 - 中国习惯）
+        colors: {
+        // 交易方向色
         up: {
-          DEFAULT: '#14b8a6', // 涨 - 绿色
-          light: '#5eead4',
-          dark: '#0f766e',
+          DEFAULT: '#0ECB81', // Binance Green
+          light: '#36D996',
+          dark: '#0B9C63',
+          bg: 'rgba(14, 203, 129, 0.12)',
         },
         down: {
-          DEFAULT: '#ef4444', // 跌 - 红色
-          light: '#fca5a5',
-          dark: '#b91c1c',
+          DEFAULT: '#F6465D', // Binance Red
+          light: '#FF6E81',
+          dark: '#C9263D',
+          bg: 'rgba(246, 70, 93, 0.12)',
         },
-        accent: {
-          DEFAULT: '#f59e0b',
-          light: '#fbbf24',
-          soft: '#fde68a',
-        },
-        // 背景色
+        // 专业的深色背景体系
         bg: {
-          primary: '#0f172a',
-          secondary: '#1e293b',
-          tertiary: '#334155',
+          DEFAULT: '#161A1E', // Main App Background
+          card: '#1E2329',    // Component Background
+          hover: '#2A2F37',   // Hover State
+          input: '#2B3139',   // Input Fields
         },
-        // 边框色
-        border: {
-          primary: '#334155',
-          secondary: '#475569',
+        // 文本层级
+        text: {
+          primary: '#EAECEF',
+          secondary: '#848E9C',
+          tertiary: '#5E6673',
+        },
+        // 边框
+        line: {
+          DEFAULT: '#2B3139',
+          light: '#363C45',
+        },
+        // 强调色
+        accent: {
+          DEFAULT: '#FCD535', // Binance Yellow
+          hover: '#F0B90B',
         },
       },
       keyframes: {

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useOrderBook } from '../hooks/useOrderBook';
 import { OrderBookItem } from './OrderBookItem';
-import { Card, CardHeader } from '@/components/ui';
 import Decimal from 'decimal.js';
 
 export function OrderBook() {
@@ -32,53 +31,41 @@ export function OrderBook() {
     return Math.max(maxBid, maxAsk);
   }, [bids, asks]);
 
-  // 计算 Spread
-  const spread = useMemo(() => {
-    if (orderBook.bids.length === 0 || orderBook.asks.length === 0) return null;
-    const highestBid = new Decimal(orderBook.bids[0][0]);
-    const lowestAsk = new Decimal(orderBook.asks[0][0]);
-    const diff = lowestAsk.minus(highestBid);
-    return {
-      price: diff.toFixed(2),
-      percentage: diff.div(lowestAsk).times(100).toFixed(3)
-    };
-  }, [orderBook.bids, orderBook.asks]);
+
 
   if (error) {
     return (
-      <Card className="h-full flex items-center justify-center">
+      <div className="h-full flex items-center justify-center bg-bg-card">
         <span className="text-down text-sm">{error}</span>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card noPadding className="flex flex-col h-full">
-      <CardHeader 
-        title="订单簿" 
-        extra={<span className="text-xs text-slate-500 font-mono">Depth 12</span>} 
-      />
+    <div className="flex flex-col h-full bg-bg-card">
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-line flex justify-between items-center">
+        <span className="text-sm font-medium text-text-primary">Order Book</span>
+        <span className="text-xs text-text-tertiary font-mono">0.01</span>
+      </div>
 
-      {/* Table Header */}
-      <div className="grid grid-cols-3 gap-2 px-3 py-1.5 text-[10px] font-medium text-slate-500 border-b border-white/5 uppercase tracking-wide">
-        <span>价格</span>
-        <span className="text-right">数量</span>
-        <span className="text-right">累计</span>
+      {/* Column Headers */}
+      <div className="grid grid-cols-3 gap-2 px-3 py-1 text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
+        <span className="text-left">Price(USDT)</span>
+        <span className="text-right">Amount(BTC)</span>
+        <span className="text-right">Total</span>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden flex flex-col relative min-h-0">
+      <div className="flex-1 overflow-hidden flex flex-col relative min-h-0 text-xs">
         {loading && orderBook.bids.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center bg-bg-secondary/80 z-20">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-4 h-4 border-2 border-up border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-slate-400">同步中...</span>
-            </div>
+          <div className="absolute inset-0 flex items-center justify-center bg-bg-card/80 z-20">
+            <div className="w-5 h-5 border-2 border-up border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
-        {/* Asks */}
-        <div className="flex-1 flex flex-col justify-end overflow-hidden">
+        {/* Asks (Sell Orders) - Red */}
+        <div className="flex-1 flex flex-col justify-end overflow-hidden pb-1">
           {asks.map((item) => (
             <OrderBookItem
               key={item.price}
@@ -91,24 +78,18 @@ export function OrderBook() {
           ))}
         </div>
 
-        {/* Spread */}
-        <div className="py-2 border-y border-white/10 bg-bg-tertiary/30 flex items-center justify-center gap-3">
-          <span className={`text-base font-heading font-bold ${
-            orderBook.asks.length > 0 ? 'text-up' : 'text-slate-400'
-          }`}>
-            {orderBook.asks.length > 0 
-              ? new Decimal(orderBook.asks[0][0]).toFixed(2) 
-              : '--'}
-          </span>
-          {spread && (
-            <span className="text-[10px] font-mono text-slate-500">
-              {spread.percentage}%
-            </span>
-          )}
+        {/* Spread / Last Price */}
+        <div className="py-1.5 border-y border-line bg-bg px-3 flex items-center justify-between">
+          <div className={`text-lg font-bold ${orderBook.asks.length > 0 ? 'text-up' : 'text-text-tertiary'} font-mono`}>
+             {orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(2) : '--'}
+             <span className="text-xs ml-2 text-text-tertiary font-normal">
+               ≈ ${orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(2) : '--'}
+             </span>
+          </div>
         </div>
 
-        {/* Bids */}
-        <div className="flex-1 overflow-hidden">
+        {/* Bids (Buy Orders) - Green */}
+        <div className="flex-1 overflow-hidden pt-1">
           {bids.map((item) => (
             <OrderBookItem
               key={item.price}
@@ -121,6 +102,6 @@ export function OrderBook() {
           ))}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

@@ -34,39 +34,37 @@ export function TradingLayout({
   tradeForm,
 }: TradingLayoutProps) {
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      {/* Ticker Bar */}
-      <div className="shrink-0">
+    <div className="flex flex-col h-screen overflow-hidden bg-bg">
+      {/* Top: Ticker Bar (Fixed) */}
+      <div className="shrink-0 border-b border-line">
         {ticker}
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 min-h-0 p-2 lg:p-3">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-3 h-full">
-          
-          {/* Left: Chart */}
-          <div className="lg:col-span-7 min-h-[400px] lg:min-h-0">
-            {chart}
-          </div>
-
-          {/* Middle: OrderBook + Trades */}
-          <div className="lg:col-span-3 flex flex-col gap-2 lg:gap-3 min-h-[500px] lg:min-h-0">
-            {/* OrderBook - 占 60% */}
-            <div className="flex-[6] min-h-0">
-              {orderBook}
-            </div>
-            {/* Trades - 占 40% */}
-            <div className="flex-[4] min-h-0">
-              {trades}
-            </div>
-          </div>
-
-          {/* Right: Trade Form */}
-          <div className="lg:col-span-2 min-h-[400px] lg:min-h-0">
-            {tradeForm}
-          </div>
-
+      {/* Main Content Area */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        
+        {/* Left Column: Chart (Liquid width) */}
+        <div className="flex-1 min-h-[50vh] lg:min-h-0 flex flex-col border-b lg:border-b-0 lg:border-r border-line">
+          {chart}
         </div>
+
+        {/* Middle Column: OrderBook & Trades (Fixed width) */}
+        <div className="lg:w-[320px] shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-line min-h-[500px] lg:min-h-0">
+          {/* OrderBook (Flex grow) */}
+          <div className="flex-[3] min-h-0 border-b border-line">
+            {orderBook}
+          </div>
+          {/* Trades (Flex grow) */}
+          <div className="flex-[2] min-h-0">
+            {trades}
+          </div>
+        </div>
+
+        {/* Right Column: Trade Form (Fixed width) */}
+        <div className="lg:w-[300px] shrink-0 min-h-[400px] lg:min-h-0">
+          {tradeForm}
+        </div>
+
       </div>
     </div>
   );
