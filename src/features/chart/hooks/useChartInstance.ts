@@ -15,6 +15,10 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
   const klineData = useAtomValue(klineDataAtom);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const lastDataLengthRef = useRef(0);
+  const lastDataStartTimeRef = useRef<number | null>(null);
+  const autoScrollRef = useRef(true);
+
 
   /**
    * 初始化图表
@@ -68,8 +72,20 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
 
     candleSeriesRef.current = candleSeries;
 
+    const handleVisibleRangeChange = (range: LogicalRange | null) => {
+      if (!range || lastDataLengthRef.current === 0) return;
+
+      const lastIndex = lastDataLengthRef.current - 1;
+      const isAtRightEdge = range.to >= lastIndex - 2;
+
+      autoScrollRef.current = isAtRightEdge;
+    };
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+
     // 响应式调整
     const handleResize = () => {
+
       chart.applyOptions({
         width: container.clientWidth,
         height: container.clientHeight,
@@ -81,33 +97,78 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
     // 清理
     return () => {
       window.removeEventListener('resize', handleResize);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
     };
+
   }, [container]);
+
+  const toChartCandle = (candle: Candle) => ({
+    time: candle.time as any, // Lightweight Charts 接受 Unix 时间戳（秒）
+    open: parseFloat(candle.open),
+    high: parseFloat(candle.high),
+    low: parseFloat(candle.low),
+    close: parseFloat(candle.close),
+  });
 
   /**
    * 更新图表数据
    */
   useEffect(() => {
-    if (!candleSeriesRef.current || klineData.length === 0) return;
+    const chart = chartRef.current;
+    const candleSeries = candleSeriesRef.current;
 
-    // 转换数据格式
-    const chartData = klineData.map((candle: Candle) => ({
-      time: candle.time as any, // Lightweight Charts 接受 Unix 时间戳（秒）
-      open: parseFloat(candle.open),
-      high: parseFloat(candle.high),
-      low: parseFloat(candle.low),
-      close: parseFloat(candle.close),
-    }));
+    if (!chart || !candleSeries) return;
 
-    // 设置数据
-    candleSeriesRef.current.setData(chartData);
+    if (klineData.length === 0) {
+      lastDataLengthRef.current = 0;
+      lastDataStartTimeRef.current = null;
+      return;
+    }
 
-    // 自动调整视图
-    chartRef.current?.timeScale().fitContent();
+    const currentStartTime = klineData[0].time;
+    const shouldReset =
+      lastDataStartTimeRef.current === null ||
+      klineData.length < lastDataLengthRef.current ||
+      currentStartTime !== lastDataStartTimeRef.current;
+
+    if (shouldReset) {
+      candleSeries.setData(klineData.map(toChartCandle));
+      
+      // 重要：在切换交易对后，确保价格轴和时间轴都自动适配
+      chart.timeScale().fitContent();
+      
+      // 显式触发价格轴的自动缩放
+      // 通过设置 autoScale 为 true 确保 Y 轴能正确适配新的价格范围
+      candleSeries.applyOptions({
+        priceFormat: {
+          type: 'price',
+          precision: 2,
+          minMove: 0.01,
+        },
+      });
+      
+      // 使用 setTimeout 确保在下一帧重新计算可见范围
+      setTimeout(() => {
+        chart.timeScale().fitContent();
+      }, 0);
+      
+      autoScrollRef.current = true;
+    } else {
+      const lastCandle = klineData[klineData.length - 1];
+      candleSeries.update(toChartCandle(lastCandle));
+
+      if (autoScrollRef.current) {
+        chart.timeScale().scrollToRealTime();
+      }
+    }
+
+    lastDataLengthRef.current = klineData.length;
+    lastDataStartTimeRef.current = currentStartTime;
   }, [klineData]);
+
 
   return {
     chart: chartRef.current,

@@ -144,11 +144,15 @@ export function useKlineData() {
   }, [symbol, interval, handleWsMessage, setWsStatus]);
 
   /**
-   * 当 symbol 或 interval 变化时，重新加载数据
+   * 当 symbol 或 interval 变化时，立即清空旧数据并重新加载
    */
   useEffect(() => {
+    // 立即清空旧数据，避免显示错误的价格范围
+    setKlineData([]);
+    
+    // 然后加载新数据
     loadHistoricalData();
-  }, [loadHistoricalData]);
+  }, [loadHistoricalData, setKlineData]);
 
   return {
     klineData,
