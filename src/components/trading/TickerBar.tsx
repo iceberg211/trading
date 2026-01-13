@@ -1,32 +1,47 @@
 import { useAtomValue } from 'jotai';
-import { orderBookAtom } from '@/features/orderbook/atoms/orderBookAtom';
-import Decimal from 'decimal.js';
+import { symbolAtom } from '@/features/symbol/atoms/symbolAtom';
+import { tickerAtom } from '@/features/ticker/atoms/tickerAtom';
+import { useTicker } from '@/features/ticker/hooks/useTicker';
 import { SymbolSelector } from './SymbolSelector';
 
-// 模拟 24h 数据
-const mock24hData = {
-  high: '98,500.00',
-  low: '94,200.00',
-  volume: '12,345.67',
-  quoteVolume: '1.2B',
-  priceChangePercent: '+2.45',
+// 格式化大数字
+const formatLargeNumber = (value: string | number): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2) + 'B';
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(2) + 'M';
+  if (num >= 1_000) return (num / 1_000).toFixed(2) + 'K';
+  return num.toFixed(2);
+};
+
+// 格式化价格
+const formatPrice = (value: string, decimals = 2): string => {
+  const num = parseFloat(value);
+  if (isNaN(num)) return '--';
+  return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 };
 
 export function TickerBar() {
-  const orderBook = useAtomValue(orderBookAtom);
+  const symbol = useAtomValue(symbolAtom);
+  const ticker = useAtomValue(tickerAtom);
   
-  const lastPrice = orderBook.asks.length > 0 
-    ? new Decimal(orderBook.asks[0][0]).toFixed(2) 
-    : '--';
+  // 初始化 Ticker 数据加载
+  useTicker();
 
-  const isPositive = mock24hData.priceChangePercent.startsWith('+');
+  const lastPrice = ticker?.lastPrice ? formatPrice(ticker.lastPrice) : '--';
+  const priceChangePercent = ticker?.priceChangePercent 
+    ? parseFloat(ticker.priceChangePercent) 
+    : 0;
+  const isPositive = priceChangePercent >= 0;
+
+  // 获取交易对的 base 币种（用于显示成交量单位）
+  const baseAsset = symbol.replace('USDT', '');
 
   return (
     <div className="flex items-center bg-bg-card">
       {/* Symbol Selector - 独立容器，不受 overflow 影响 */}
       <div className="flex items-center gap-2 shrink-0 px-4 py-2">
         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-[10px] font-bold text-white">
-          ₿
+          {baseAsset.charAt(0)}
         </div>
         <SymbolSelector />
       </div>
@@ -51,24 +66,32 @@ export function TickerBar() {
           <div>
             <span className="text-text-tertiary block text-[10px]">24h Change</span>
             <span className={`font-mono font-medium ${isPositive ? 'text-up' : 'text-down'}`}>
-              {mock24hData.priceChangePercent}%
+              {isPositive ? '+' : ''}{priceChangePercent.toFixed(2)}%
             </span>
           </div>
           <div className="hidden sm:block">
             <span className="text-text-tertiary block text-[10px]">24h High</span>
-            <span className="text-text-primary font-mono">{mock24hData.high}</span>
+            <span className="text-text-primary font-mono">
+              {ticker?.highPrice ? formatPrice(ticker.highPrice) : '--'}
+            </span>
           </div>
           <div className="hidden sm:block">
             <span className="text-text-tertiary block text-[10px]">24h Low</span>
-            <span className="text-text-primary font-mono">{mock24hData.low}</span>
+            <span className="text-text-primary font-mono">
+              {ticker?.lowPrice ? formatPrice(ticker.lowPrice) : '--'}
+            </span>
           </div>
           <div className="hidden md:block">
-            <span className="text-text-tertiary block text-[10px]">24h Vol(BTC)</span>
-            <span className="text-text-primary font-mono">{mock24hData.volume}</span>
+            <span className="text-text-tertiary block text-[10px]">24h Vol({baseAsset})</span>
+            <span className="text-text-primary font-mono">
+              {ticker?.volume ? formatLargeNumber(ticker.volume) : '--'}
+            </span>
           </div>
           <div className="hidden lg:block">
             <span className="text-text-tertiary block text-[10px]">24h Vol(USDT)</span>
-            <span className="text-text-primary font-mono">{mock24hData.quoteVolume}</span>
+            <span className="text-text-primary font-mono">
+              {ticker?.quoteVolume ? formatLargeNumber(ticker.quoteVolume) : '--'}
+            </span>
           </div>
         </div>
       </div>

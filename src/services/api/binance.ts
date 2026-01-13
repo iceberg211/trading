@@ -5,6 +5,7 @@ import type {
   KlineInterval,
   OrderBook,
   Trade,
+  Ticker24hr,
 } from '@/types/binance';
 
 /**
@@ -76,6 +77,22 @@ class BinanceApi {
       }));
     } catch (error) {
       console.error('获取成交记录失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取 24h Ticker 数据
+   * @param symbol 交易对
+   */
+  async getTicker24hr(symbol: string): Promise<Ticker24hr> {
+    try {
+      const response = await apiClient.get<Ticker24hr>('/v3/ticker/24hr', {
+        symbol: symbol.toUpperCase(),
+      });
+      return response.data;
+    } catch (error) {
+      console.error('获取 24h Ticker 失败:', error);
       throw error;
     }
   }

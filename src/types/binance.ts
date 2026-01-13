@@ -78,3 +78,28 @@ export interface Trade {
   time: number;
   isBuyerMaker: boolean;
 }
+
+// 24h Ticker 数据
+export interface Ticker24hr {
+  symbol: string;
+  priceChange: string;        // 价格变动
+  priceChangePercent: string; // 价格变动百分比
+  weightedAvgPrice: string;   // 加权平均价
+  prevClosePrice: string;     // 前收盘价
+  lastPrice: string;          // 最新价
+  lastQty: string;            // 最新成交量
+  bidPrice: string;           // 买一价
+  bidQty: string;             // 买一量
+  askPrice: string;           // 卖一价
+  askQty: string;             // 卖一量
+  openPrice: string;          // 开盘价
+  highPrice: string;          // 最高价
+  lowPrice: string;           // 最低价
+  volume: string;             // 24h 成交量
+  quoteVolume: string;        // 24h 成交额
+  openTime: number;           // 统计开始时间
+  closeTime: number;          // 统计结束时间
+  firstId: number;            // 首笔成交 ID
+  lastId: number;             // 末笔成交 ID
+  count: number;              // 成交笔数
+}

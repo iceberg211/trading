@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useKlineData } from '../hooks/useKlineData';
 import { useChartInstance } from '../hooks/useChartInstance';
 import { ChartToolbar } from './ChartToolbar';
+import { OHLCVPanel } from './OHLCVPanel';
 
 
 export function ChartContainer() {
@@ -14,6 +15,11 @@ export function ChartContainer() {
       {/* 工具栏 */}
       <div className="border-b border-line px-2">
          <ChartToolbar />
+      </div>
+
+      {/* OHLCV 悬浮信息 */}
+      <div className="px-3 py-1.5 bg-bg border-b border-line min-h-[28px]">
+        <OHLCVPanel />
       </div>
 
       {/* 状态栏 */}

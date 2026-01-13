@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { useAtomValue } from 'jotai';
-import { createChart, IChartApi, ISeriesApi, type LogicalRange } from 'lightweight-charts';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { createChart, IChartApi, ISeriesApi, type LogicalRange, type MouseEventParams } from 'lightweight-charts';
 import { klineDataAtom } from '../atoms/klineAtom';
+import { crosshairDataAtom } from '../atoms/crosshairAtom';
 import type { Candle } from '@/types/binance';
 
 interface UseChartInstanceOptions {
@@ -13,11 +14,14 @@ interface UseChartInstanceOptions {
  */
 export function useChartInstance({ container }: UseChartInstanceOptions) {
   const klineData = useAtomValue(klineDataAtom);
+  const setCrosshairData = useSetAtom(crosshairDataAtom);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const lastDataLengthRef = useRef(0);
   const lastDataStartTimeRef = useRef<number | null>(null);
   const autoScrollRef = useRef(true);
+  // 存储 K 线数据用于十字线查询
+  const klineDataRef = useRef<Candle[]>([]);
 
 
   /**
@@ -47,13 +51,20 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
         borderColor: '#2B3139',
       },
       crosshair: {
+        mode: 1, // CrosshairMode.Normal - 显示十字线
         vertLine: {
           color: '#5E6673',
+          width: 1,
+          style: 2, // LineStyle.Dashed
           labelBackgroundColor: '#474D57',
+          labelVisible: true,
         },
         horzLine: {
           color: '#5E6673',
+          width: 1,
+          style: 2,
           labelBackgroundColor: '#474D57',
+          labelVisible: true, // 关键：显示价格轴上的标签
         },
       },
     });
@@ -73,15 +84,53 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
     candleSeriesRef.current = candleSeries;
 
     const handleVisibleRangeChange = (range: LogicalRange | null) => {
-      if (!range || lastDataLengthRef.current === 0) return;
+      if (!range) return;
+      
+      // 当数据还没加载时，不做判断
+      if (lastDataLengthRef.current === 0) return;
 
       const lastIndex = lastDataLengthRef.current - 1;
-      const isAtRightEdge = range.to >= lastIndex - 2;
+      // 用户拖动后，如果可视范围的右边界不在最新数据附近，则关闭自动滚动
+      // 阈值设为 5，给用户更大的容错空间
+      const isAtRightEdge = range.to >= lastIndex - 5;
 
       autoScrollRef.current = isAtRightEdge;
     };
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+
+    // 十字线事件处理
+    const handleCrosshairMove = (param: MouseEventParams) => {
+      if (!param.time || !param.seriesData) {
+        setCrosshairData(null);
+        return;
+      }
+
+      const candleData = param.seriesData.get(candleSeries);
+      if (!candleData || !('open' in candleData)) {
+        setCrosshairData(null);
+        return;
+      }
+
+      const ohlc = candleData as { time: number; open: number; high: number; low: number; close: number };
+      const changePercent = ((ohlc.close - ohlc.open) / ohlc.open) * 100;
+
+      // 查找对应的成交量
+      const time = typeof param.time === 'number' ? param.time : 0;
+      const matchingCandle = klineDataRef.current.find(c => c.time === time);
+
+      setCrosshairData({
+        time,
+        open: ohlc.open,
+        high: ohlc.high,
+        low: ohlc.low,
+        close: ohlc.close,
+        volume: matchingCandle ? parseFloat(matchingCandle.volume) : undefined,
+        changePercent,
+      });
+    };
+
+    chart.subscribeCrosshairMove(handleCrosshairMove);
 
     // 响应式调整
     const handleResize = () => {
@@ -98,12 +147,14 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
+      setCrosshairData(null);
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
     };
 
-  }, [container]);
+  }, [container, setCrosshairData]);
 
   const toChartCandle = (candle: Candle) => ({
     time: candle.time as any, // Lightweight Charts 接受 Unix 时间戳（秒）
@@ -169,6 +220,8 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
 
     lastDataLengthRef.current = klineData.length;
     lastDataStartTimeRef.current = currentStartTime;
+    // 同步 K 线数据供十字线查询成交量
+    klineDataRef.current = klineData;
   }, [klineData]);
 
 
