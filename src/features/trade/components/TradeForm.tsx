@@ -17,15 +17,15 @@ function OrderTypeSelector({
   ];
   
   return (
-    <div className="flex gap-1 p-1 bg-bg rounded-lg">
+    <div className="flex gap-1 p-1 bg-bg-panel/70 border border-line-dark rounded-lg">
       {types.map((t) => (
         <button
           key={t.value}
           onClick={() => onSelect(t.value)}
           className={`flex-1 py-1.5 text-xs rounded-md transition-all ${
             selected === t.value
-              ? 'bg-bg-input text-text-primary font-medium'
-              : 'text-text-tertiary hover:text-text-secondary'
+              ? 'bg-bg-soft text-text-primary font-medium shadow-sm'
+              : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-soft/40'
           }`}
         >
           {t.label}
@@ -33,6 +33,7 @@ function OrderTypeSelector({
       ))}
     </div>
   );
+
 }
 
 // 百分比按钮组
@@ -51,14 +52,15 @@ function PercentageButtons({
         <button
           key={p}
           onClick={() => onSelect(p)}
-          className={`py-1 text-xs rounded bg-bg-input border transition-all ${
+          className={`py-1 text-xs rounded border transition-all ${
             selected === p
-              ? 'border-accent text-accent'
-              : 'border-transparent text-text-secondary hover:text-text-primary'
+              ? 'border-accent text-accent bg-accent/10'
+              : 'border-line-dark text-text-secondary hover:text-text-primary hover:bg-bg-soft/40'
           }`}
         >
           {p}%
         </button>
+
       ))}
     </div>
   );
@@ -87,14 +89,14 @@ export function TradeForm() {
   const isStopLimit = form.type === 'stop_limit';
 
   return (
-    <div className="flex flex-col h-full bg-bg-card">
+    <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
       {/* Header Tabs - Buy/Sell */}
-      <div className="flex border-b border-line">
+      <div className="flex border-b border-line-dark bg-bg-soft/70">
         <button
           onClick={() => setSide('buy')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${
+          className={`flex-1 py-3 text-xs font-semibold uppercase tracking-[0.22em] transition-colors border-b-2 ${
             form.side === 'buy' 
-              ? 'border-up text-up bg-up-bg' 
+              ? 'border-up text-up bg-up-bg/50' 
               : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
@@ -102,15 +104,16 @@ export function TradeForm() {
         </button>
         <button
           onClick={() => setSide('sell')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${
+          className={`flex-1 py-3 text-xs font-semibold uppercase tracking-[0.22em] transition-colors border-b-2 ${
             form.side === 'sell' 
-              ? 'border-down text-down bg-down-bg' 
+              ? 'border-down text-down bg-down-bg/50' 
               : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
           Sell
         </button>
       </div>
+
 
       {/* Form Body */}
       <div className="flex-1 p-4 space-y-3 overflow-y-auto">
@@ -135,8 +138,9 @@ export function TradeForm() {
                 type="text"
                 value={form.stopPrice}
                 onChange={(e) => setStopPrice(e.target.value)}
-                className="w-full bg-bg-input text-white px-3 py-2 text-sm rounded border border-transparent focus:border-accent outline-none font-mono transition-colors hover:border-line-light"
+                className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
                 placeholder="Trigger price"
+
               />
               <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
             </div>
@@ -154,8 +158,9 @@ export function TradeForm() {
                 type="text"
                 value={form.price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-bg-input text-white px-3 py-2 text-sm rounded border border-transparent focus:border-accent outline-none font-mono transition-colors hover:border-line-light"
+                className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
                 placeholder="0.00"
+
               />
               <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
             </div>
@@ -166,10 +171,11 @@ export function TradeForm() {
         {isMarketOrder && (
           <div className="space-y-1">
             <label className="text-xs text-text-tertiary">Price</label>
-            <div className="bg-bg-input text-text-secondary px-3 py-2 text-sm rounded font-mono">
+            <div className="bg-bg-soft/70 text-text-secondary px-3 py-2 text-sm rounded font-mono border border-line-dark">
               Market Price
             </div>
           </div>
+
         )}
 
         {/* Amount Input */}
@@ -180,10 +186,11 @@ export function TradeForm() {
               type="text"
               value={form.amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-bg-input text-white px-3 py-2 text-sm rounded border border-transparent focus:border-accent outline-none font-mono transition-colors hover:border-line-light"
+              className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
               placeholder="0.00"
             />
             <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">BTC</span>
+
           </div>
         </div>
 
@@ -201,18 +208,20 @@ export function TradeForm() {
               type="text"
               value={form.total}
               onChange={(e) => setTotal(e.target.value)}
-              className="w-full bg-bg-input text-white px-3 py-2 text-sm rounded border border-transparent focus:border-accent outline-none font-mono transition-colors hover:border-line-light"
+              className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
               placeholder="0.00"
               disabled={isMarketOrder}
             />
             <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
+
           </div>
         </div>
       </div>
 
       {/* Submit Button */}
-      <div className="p-4 pt-0">
+      <div className="p-4 pt-3 border-t border-line-dark bg-bg-panel/50">
         <button
+
           disabled={!validation.isValid || submitting}
           onClick={submitOrder}
           className={`w-full py-3 rounded text-sm font-bold text-white transition-all transform active:scale-[0.98] ${

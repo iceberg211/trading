@@ -3,6 +3,7 @@ import { ErrorBoundary } from '../ErrorBoundary';
 import { TickerBar } from '../trading/TickerBar';
 import { RecentTrades } from '../trading/RecentTrades';
 import { AssetPanel } from '../trading/AssetPanel';
+import { NetworkStatusBar } from '../ui/NetworkStatusBar';
 import { ChartContainer } from '../../features/chart/components/ChartContainer';
 import { OrderBook } from '../../features/orderbook/components/OrderBook';
 import { TradeForm } from '../../features/trade/components/TradeForm';
@@ -25,6 +26,9 @@ const SafeSection = ({ children, fallback }: { children: ReactNode; fallback?: R
 export function TradingLayout() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
+      {/* Network Status Banner */}
+      <NetworkStatusBar />
+
       {/* Top: Ticker Bar (Fixed) */}
       <div className="shrink-0 border-b border-line">
         <SafeSection fallback={<div className="h-14 bg-bg-card animate-pulse" />}>
