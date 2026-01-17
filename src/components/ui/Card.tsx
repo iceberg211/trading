@@ -10,8 +10,9 @@ export function Card({ children, className = '', noPadding = false }: CardProps)
   return (
     <div
       className={`
-        bg-bg-secondary/70 backdrop-blur 
-        rounded-xl border border-white/10 
+        bg-bg-panel/80 backdrop-blur 
+        rounded-xl border border-line 
+
         overflow-hidden
         ${noPadding ? '' : 'p-4'}
         ${className}
@@ -29,8 +30,9 @@ interface CardHeaderProps {
 
 export function CardHeader({ title, extra }: CardHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-bg-tertiary/30">
-      <h3 className="font-heading font-medium text-sm text-slate-200">{title}</h3>
+    <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-bg-soft/60">
+      <h3 className="font-heading font-medium text-sm text-text-primary">{title}</h3>
+
       {extra}
     </div>
   );

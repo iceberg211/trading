@@ -31,6 +31,12 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background-color: #161A1E;
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(252, 213, 53, 0.08), transparent 45%),
+    radial-gradient(circle at 85% 10%, rgba(14, 203, 129, 0.08), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(246, 70, 93, 0.08), transparent 45%),
+    linear-gradient(180deg, rgba(22, 26, 30, 0.92), rgba(12, 14, 17, 0.98));
+  background-attachment: fixed;
   color: #EAECEF;
 }
 
@@ -73,3 +79,23 @@ input:-webkit-autofill:active {
     animation: none !important;
   }
 }
+
+/* Price Flash Animations */
+@keyframes flash-up {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(14, 203, 129, 0.25); }
+}
+
+@keyframes flash-down {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(246, 70, 93, 0.25); }
+}
+
+.animate-flash-up {
+  animation: flash-up 0.3s ease-out;
+}
+
+.animate-flash-down {
+  animation: flash-down 0.3s ease-out;
+}
+

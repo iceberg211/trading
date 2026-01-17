@@ -2,7 +2,7 @@ import { atom } from 'jotai';
 
 // 订单类型
 export type OrderSide = 'buy' | 'sell';
-export type OrderType = 'limit' | 'market';
+export type OrderType = 'limit' | 'market' | 'stop_limit';
 
 // 交易表单状态
 export interface TradeFormState {
@@ -11,6 +11,7 @@ export interface TradeFormState {
   price: string;
   amount: string;
   total: string;
+  stopPrice: string; // 止损触发价
   percentageUsed: number; // 0-100
 }
 
@@ -21,6 +22,7 @@ export const defaultTradeFormState: TradeFormState = {
   price: '',
   amount: '',
   total: '',
+  stopPrice: '',
   percentageUsed: 0,
 };
 

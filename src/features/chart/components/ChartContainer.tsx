@@ -11,19 +11,20 @@ export function ChartContainer() {
   useChartInstance({ container: chartContainerRef.current });
 
   return (
-    <div className="flex flex-col h-full bg-bg-card">
+    <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
       {/* 工具栏 */}
-      <div className="border-b border-line px-2">
+      <div className="border-b border-line-dark px-2 bg-bg-soft/70">
          <ChartToolbar />
-      </div>
+       </div>
+
 
       {/* OHLCV 悬浮信息 */}
-      <div className="px-3 py-1.5 bg-bg border-b border-line min-h-[28px]">
+      <div className="px-3 py-1.5 bg-bg-panel border-b border-line-dark min-h-[28px]">
         <OHLCVPanel />
       </div>
 
       {/* 状态栏 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1 bg-bg border-b border-line text-[10px]">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1 bg-bg-panel border-b border-line-dark text-[10px]">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="text-text-secondary">WS:</span>

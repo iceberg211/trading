@@ -27,22 +27,27 @@ export default {
           card: '#1E2329',    // Component Background
           hover: '#2A2F37',   // Hover State
           input: '#2B3139',   // Input Fields
+          panel: '#1B2026',   // Secondary panel background
+          soft: '#20252C',    // Tertiary panel background
         },
         // 文本层级
         text: {
           primary: '#EAECEF',
           secondary: '#848E9C',
           tertiary: '#5E6673',
+          inverse: '#1E2329',
         },
         // 边框
         line: {
           DEFAULT: '#2B3139',
           light: '#363C45',
+          dark: '#232830',
         },
         // 强调色
         accent: {
           DEFAULT: '#FCD535', // Binance Yellow
           hover: '#F0B90B',
+          soft: 'rgba(252, 213, 53, 0.16)',
         },
       },
       keyframes: {

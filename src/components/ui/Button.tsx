@@ -11,12 +11,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-accent hover:bg-accent-light text-bg-primary font-medium',
-  secondary: 'bg-bg-tertiary hover:bg-bg-primary border border-white/10 text-slate-200',
-  ghost: 'hover:bg-white/5 text-slate-300',
+  primary: 'bg-accent hover:bg-accent-hover text-text-inverse font-medium',
+  secondary: 'bg-bg-soft hover:bg-bg-hover border border-line text-text-primary',
+  ghost: 'hover:bg-bg-hover text-text-secondary',
   buy: 'bg-up hover:bg-up-light text-white font-bold shadow-lg shadow-up/20',
   sell: 'bg-down hover:bg-down-light text-white font-bold shadow-lg shadow-down/20',
 };
+
 
 const sizeStyles: Record<ButtonSize, string> = {
   sm: 'px-3 py-1.5 text-xs rounded-lg',

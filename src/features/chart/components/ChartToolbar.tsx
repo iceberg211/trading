@@ -25,8 +25,8 @@ export function ChartToolbar() {
             px-2 py-1 text-xs font-medium rounded transition-colors
             ${
               currentInterval === interval.value
-                ? 'text-text-primary bg-bg-tertiary'
-                : 'text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/50'
+                ? 'text-text-primary bg-bg-soft'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
             }
           `}
         >

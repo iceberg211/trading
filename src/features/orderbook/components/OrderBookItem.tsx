@@ -17,7 +17,8 @@ export function OrderBookItem({ price, qty, total, maxTotal, type }: OrderBookIt
   const formattedTotal = new Decimal(total).toFixed(2);
 
   return (
-    <div className="relative grid grid-cols-3 gap-2 px-3 py-[1px] text-xs hover:bg-bg-hover cursor-pointer transition-colors">
+    <div className="relative grid grid-cols-3 gap-2 px-3 py-[1px] text-xs hover:bg-bg-soft/50 cursor-pointer transition-colors">
+
       {/* 深度背景条 (Depth Bar) */}
       <div
         className={`absolute top-0 right-0 bottom-0 transition-all duration-200 z-0 ${

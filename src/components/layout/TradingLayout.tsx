@@ -2,6 +2,7 @@ import { Suspense, ReactNode } from 'react';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { TickerBar } from '../trading/TickerBar';
 import { RecentTrades } from '../trading/RecentTrades';
+import { AssetPanel } from '../trading/AssetPanel';
 import { ChartContainer } from '../../features/chart/components/ChartContainer';
 import { OrderBook } from '../../features/orderbook/components/OrderBook';
 import { TradeForm } from '../../features/trade/components/TradeForm';
@@ -57,10 +58,17 @@ export function TradingLayout() {
           </div>
         </div>
 
-        {/* Right Column: Trade Form (Fixed width) */}
-        <div className="lg:w-[300px] shrink-0 min-h-[400px] lg:min-h-0">
+        {/* Right Column: Trade Form + Assets (Fixed width) */}
+        <div className="lg:w-[300px] shrink-0 flex flex-col min-h-[400px] lg:min-h-0">
+          {/* Trade Form */}
+          <div className="flex-1 min-h-0">
+            <SafeSection>
+              <TradeForm />
+            </SafeSection>
+          </div>
+          {/* Asset Panel */}
           <SafeSection>
-            <TradeForm />
+            <AssetPanel />
           </SafeSection>
         </div>
 

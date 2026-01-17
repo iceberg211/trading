@@ -48,7 +48,16 @@ export function useTradeForm() {
 
   // 切换订单类型
   const setType = useCallback((type: OrderType) => {
-    setForm((prev) => ({ ...prev, type }));
+    setForm((prev) => ({
+      ...prev,
+      type,
+      stopPrice: '', // 切换类型时重置止损价
+    }));
+  }, [setForm]);
+
+  // 设置止损价格
+  const setStopPrice = useCallback((stopPrice: string) => {
+    setForm((prev) => ({ ...prev, stopPrice }));
   }, [setForm]);
 
   // 设置价格
@@ -107,7 +116,12 @@ export function useTradeForm() {
 
   // 提交订单（模拟）
   const submitOrder = useCallback(async () => {
-    if (!form.price || !form.amount || submitting) return;
+    // 市价单不需要价格，但需要数量
+    const needsPrice = form.type !== 'market';
+    if ((needsPrice && !form.price) || !form.amount || submitting) return;
+    
+    // 止损单需要止损价
+    if (form.type === 'stop_limit' && !form.stopPrice) return;
 
     setSubmitting(true);
 
@@ -141,11 +155,19 @@ export function useTradeForm() {
   }, [form, submitting, setSubmitting, setOrders, setForm]);
 
   // 表单验证
+  const isMarketOrder = form.type === 'market';
+  const isStopLimit = form.type === 'stop_limit';
+  
   const validation = {
-    isValid: !!form.price && !!form.amount && parseFloat(form.amount) > 0,
+    isValid: 
+      (isMarketOrder || !!form.price) && 
+      !!form.amount && 
+      parseFloat(form.amount) > 0 &&
+      (!isStopLimit || !!form.stopPrice),
     errors: {
-      price: !form.price ? '请输入价格' : null,
+      price: !isMarketOrder && !form.price ? '请输入价格' : null,
       amount: !form.amount ? '请输入数量' : parseFloat(form.amount) <= 0 ? '数量必须大于0' : null,
+      stopPrice: isStopLimit && !form.stopPrice ? '请输入止损价' : null,
     },
   };
 
@@ -160,6 +182,7 @@ export function useTradeForm() {
     setPrice,
     setAmount,
     setTotal,
+    setStopPrice,
     setPercentage,
     submitOrder,
     getBestPrice,
