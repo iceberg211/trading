@@ -5,21 +5,21 @@ import {
   tradeFormAtom,
   mockBalanceAtom,
   orderSubmittingAtom,
-  mockOrdersAtom,
   OrderSide,
   OrderType,
-  MockOrder,
 } from '../atoms/tradeAtom';
 import { orderBookAtom } from '@/features/orderbook/atoms/orderBookAtom';
-import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
+import { symbolConfigAtom, symbolAtom } from '@/features/symbol/atoms/symbolAtom';
+import { useOrders } from '@/features/orders/hooks/useOrders';
 
 export function useTradeForm() {
   const [form, setForm] = useAtom(tradeFormAtom);
   const [balance] = useAtom(mockBalanceAtom);
   const [submitting, setSubmitting] = useAtom(orderSubmittingAtom);
-  const [orders, setOrders] = useAtom(mockOrdersAtom);
   const orderBook = useAtomValue(orderBookAtom);
   const symbolConfig = useAtomValue(symbolConfigAtom);
+  const symbol = useAtomValue(symbolAtom);
+  const { createOrder } = useOrders();
 
   const { qtyPrecision } = symbolConfig;
 
@@ -114,7 +114,7 @@ export function useTradeForm() {
     });
   }, [setForm, balance, qtyPrecision]);
 
-  // 提交订单（模拟）
+  // 提交订单 - 使用新的订单管理系统
   const submitOrder = useCallback(async () => {
     // 市价单不需要价格，但需要数量
     const needsPrice = form.type !== 'market';
@@ -125,34 +125,32 @@ export function useTradeForm() {
 
     setSubmitting(true);
 
-    // 模拟网络延迟
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      // 获取当前市价（用于市价单）
+      const price = form.type === 'market' ? getBestPrice(form.side) : form.price;
+      
+      await createOrder({
+        symbol,
+        side: form.side,
+        type: form.type,
+        price,
+        amount: form.amount,
+        stopPrice: form.stopPrice || undefined,
+      });
 
-    const newOrder: MockOrder = {
-      id: `order_${Date.now()}`,
-      side: form.side,
-      type: form.type,
-      price: form.price,
-      amount: form.amount,
-      total: form.total,
-      time: Date.now(),
-      status: 'filled', // 模拟立即成交
-    };
-
-    setOrders((prev) => [newOrder, ...prev]);
-
-    // 重置表单
-    setForm((prev) => ({
-      ...prev,
-      amount: '',
-      total: '',
-      percentageUsed: 0,
-    }));
-
-    setSubmitting(false);
-
-    return newOrder;
-  }, [form, submitting, setSubmitting, setOrders, setForm]);
+      // 重置表单
+      setForm((prev) => ({
+        ...prev,
+        amount: '',
+        total: '',
+        percentageUsed: 0,
+      }));
+    } catch (error) {
+      console.error('Order creation failed:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [form, submitting, setSubmitting, setForm, createOrder, symbol, getBestPrice]);
 
   // 表单验证
   const isMarketOrder = form.type === 'market';
@@ -175,7 +173,6 @@ export function useTradeForm() {
     form,
     balance,
     submitting,
-    orders,
     validation,
     setSide,
     setType,
