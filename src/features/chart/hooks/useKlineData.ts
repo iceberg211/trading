@@ -10,7 +10,7 @@ import {
 } from '../atoms/klineAtom';
 import { binanceApi } from '@/services/api/binance';
 import { marketDataHub } from '@/core/gateway';
-import type { BinanceKlineWsMessage, BinanceCombinedStreamMessage, Candle } from '@/types/binance';
+import type { BinanceKlineWsMessage, Candle } from '@/types/binance';
 
 /**
  * K 线数据管理 Hook
@@ -43,6 +43,43 @@ export function useKlineData() {
       setLoading(false);
     }
   }, [symbol, interval, setKlineData, setLoading, setError]);
+
+  /**
+   * 加载更早的历史数据（左侧翻页）
+   * @returns 加载的数据条数
+   */
+  const loadMore = useCallback(async (): Promise<number> => {
+    // 防止无效请求
+    if (klineData.length === 0 || loading) return 0;
+
+    const firstCandle = klineData[0];
+    const endTime = firstCandle.time * 1000 - 1; // 毫秒，减1避免重复
+
+    try {
+      const olderCandles = await binanceApi.getKlines(symbol, interval, 200, endTime);
+      
+      if (olderCandles.length === 0) {
+        console.log('[useKlineData] No more historical data available');
+        return 0;
+      }
+
+      // 合并数据（去重）
+      setKlineData((prev) => {
+        const existingTimes = new Set(prev.map(c => c.time));
+        const newCandles = olderCandles.filter(c => !existingTimes.has(c.time));
+        
+        if (newCandles.length === 0) return prev;
+        
+        console.log(`[useKlineData] Loaded ${newCandles.length} more candles`);
+        return [...newCandles, ...prev];
+      });
+
+      return olderCandles.length;
+    } catch (err) {
+      console.error('[useKlineData] Failed to load more data:', err);
+      return 0;
+    }
+  }, [klineData, loading, symbol, interval, setKlineData]);
 
   /**
    * 合并实时 K 线更新
@@ -144,5 +181,7 @@ export function useKlineData() {
     error,
     wsStatus,
     reload: loadHistoricalData,
+    loadMore,
   };
 }
+

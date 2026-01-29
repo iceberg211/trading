@@ -7,12 +7,13 @@ import type { Candle } from '@/types/binance';
 
 interface UseChartInstanceOptions {
   container: HTMLDivElement | null;
+  onLoadMore?: () => Promise<number>;
 }
 
 /**
  * Lightweight Charts 实例管理 Hook
  */
-export function useChartInstance({ container }: UseChartInstanceOptions) {
+export function useChartInstance({ container, onLoadMore }: UseChartInstanceOptions) {
   const klineData = useAtomValue(klineDataAtom);
   const setCrosshairData = useSetAtom(crosshairDataAtom);
   const chartRef = useRef<IChartApi | null>(null);
@@ -22,6 +23,9 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
   const autoScrollRef = useRef(true);
   // 存储 K 线数据用于十字线查询
   const klineDataRef = useRef<Candle[]>([]);
+  // 左侧翻页状态
+  const isLoadingMoreRef = useRef(false);
+  const lastLoadMoreTimeRef = useRef(0);
 
 
   /**
@@ -95,6 +99,24 @@ export function useChartInstance({ container }: UseChartInstanceOptions) {
       const isAtRightEdge = range.to >= lastIndex - 5;
 
       autoScrollRef.current = isAtRightEdge;
+
+      // 左边界检测：当用户滚动到左边界附近时加载更多历史数据
+      if (onLoadMore && !isLoadingMoreRef.current) {
+        const isAtLeftEdge = range.from <= 10; // 当左边界在前10条数据内时触发
+        const now = Date.now();
+        const timeSinceLastLoad = now - lastLoadMoreTimeRef.current;
+        
+        // 防抖：至少间隔 2 秒才能再次加载
+        if (isAtLeftEdge && timeSinceLastLoad > 2000) {
+          console.log('[useChartInstance] User scrolled to left edge, loading more data...');
+          isLoadingMoreRef.current = true;
+          lastLoadMoreTimeRef.current = now;
+
+          onLoadMore().finally(() => {
+            isLoadingMoreRef.current = false;
+          });
+        }
+      }
     };
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);

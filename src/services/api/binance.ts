@@ -17,18 +17,26 @@ class BinanceApi {
    * @param symbol 交易对，如 'BTCUSDT'
    * @param interval 时间周期
    * @param limit 数据条数，默认 500
+   * @param endTime 可选，截止时间戳（毫秒），用于向前加载历史数据
    */
   async getKlines(
     symbol: string,
     interval: KlineInterval,
-    limit: number = 500
+    limit: number = 500,
+    endTime?: number
   ): Promise<Candle[]> {
     try {
-      const response = await apiClient.get<BinanceKlineResponse[]>('/v3/klines', {
+      const params: Record<string, any> = {
         symbol: symbol.toUpperCase(),
         interval,
         limit,
-      });
+      };
+      
+      if (endTime !== undefined) {
+        params.endTime = endTime;
+      }
+      
+      const response = await apiClient.get<BinanceKlineResponse[]>('/v3/klines', params);
 
       return this.normalizeKlines(response.data);
     } catch (error) {

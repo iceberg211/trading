@@ -1,94 +1,120 @@
-import { useCallback } from 'react';
-import { useAtom, useSetAtom } from 'jotai';
-import {
-  openOrdersAtom,
-  orderHistoryAtom,
-  tradeHistoryAtom,
-  ordersLoadingAtom,
-  Order,
-  Trade,
-  OrderSide,
-  OrderType,
-} from '../atoms/orderAtom';
+import { useCallback, useMemo } from 'react';
+import { useAtom } from 'jotai';
+import { ordersLoadingAtom } from '../atoms/orderAtom';
+import { useTradingService } from '@/domain/trading';
+import type { Order as DomainOrder, OrderResponse } from '@/domain/trading/types';
 
-interface CreateOrderParams {
+// 兼容旧的 Order 接口
+interface Order {
+  id: string;
   symbol: string;
-  side: OrderSide;
-  type: OrderType;
+  side: 'buy' | 'sell';
+  type: 'limit' | 'market' | 'stop_limit';
   price: string;
   amount: string;
+  filled: string;
+  remaining: string;
+  total: string;
   stopPrice?: string;
+  avgPrice?: string;
+  time: number;
+  updateTime: number;
+  status: 'pending' | 'partial' | 'filled' | 'canceled';
+}
+
+// 将 domain 订单转换为 UI 订单格式
+function convertOrder(domainOrder: DomainOrder): Order {
+  const side = domainOrder.side === 'BUY' ? 'buy' : 'sell';
+  const type = domainOrder.type === 'LIMIT' ? 'limit' 
+    : domainOrder.type === 'MARKET' ? 'market' 
+    : 'stop_limit';
+  
+  const statusMap: Record<string, Order['status']> = {
+    'NEW': 'pending',
+    'PARTIALLY_FILLED': 'partial',
+    'FILLED': 'filled',
+    'CANCELED': 'canceled',
+    'REJECTED': 'canceled',
+    'EXPIRED': 'canceled',
+  };
+
+  const filled = domainOrder.executedQty;
+  const remaining = String(parseFloat(domainOrder.origQty) - parseFloat(filled));
+  const total = String(parseFloat(domainOrder.price) * parseFloat(domainOrder.origQty));
+
+  return {
+    id: String(domainOrder.orderId),
+    symbol: domainOrder.symbol,
+    side,
+    type,
+    price: domainOrder.price,
+    amount: domainOrder.origQty,
+    filled,
+    remaining,
+    total,
+    stopPrice: domainOrder.stopPrice,
+    avgPrice: domainOrder.avgPrice,
+    time: domainOrder.time,
+    updateTime: domainOrder.updateTime,
+    status: statusMap[domainOrder.status] || 'pending',
+  };
 }
 
 /**
- * 订单操作 Hook
- * 提供创建订单、撤单、模拟成交等功能
+ * 订单操作 Hook - 使用 useTradingService
+ * 提供创建订单、撤单等功能
  */
 export function useOrders() {
-  const [openOrders, setOpenOrders] = useAtom(openOrdersAtom);
-  const [orderHistory, setOrderHistory] = useAtom(orderHistoryAtom);
-  const setTradeHistory = useSetAtom(tradeHistoryAtom);
   const [loading, setLoading] = useAtom(ordersLoadingAtom);
+  const tradingService = useTradingService();
 
-  // 创建订单
+  // 从 MatchingEngine 获取订单
+  const openOrders = useMemo(() => {
+    return tradingService.getActiveOrders().map(convertOrder);
+  }, [tradingService]);
+
+  const orderHistory = useMemo(() => {
+    return tradingService.getOrderHistory().map(convertOrder);
+  }, [tradingService]);
+
+  // 创建订单 - 代理到 useTradingService
   const createOrder = useCallback(
-    async (params: CreateOrderParams): Promise<Order> => {
+    async (params: {
+      symbol: string;
+      side: 'buy' | 'sell';
+      type: 'limit' | 'market' | 'stop_limit';
+      price: string;
+      amount: string;
+      stopPrice?: string;
+    }): Promise<Order> => {
       setLoading(true);
 
-      // 模拟网络延迟
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        // 转换格式
+        const orderSide = params.side === 'buy' ? 'BUY' : 'SELL';
+        const orderType = params.type === 'limit' ? 'LIMIT' 
+          : params.type === 'market' ? 'MARKET' 
+          : 'STOP_LIMIT';
 
-      const now = Date.now();
-      const total = (parseFloat(params.price) * parseFloat(params.amount)).toFixed(2);
+        const response: OrderResponse = tradingService.submitOrder({
+          side: orderSide,
+          type: orderType,
+          quantity: params.amount,
+          price: params.price || undefined,
+          stopPrice: params.stopPrice || undefined,
+        });
 
-      const newOrder: Order = {
-        id: `ORD_${now}_${Math.random().toString(36).substr(2, 9)}`,
-        symbol: params.symbol,
-        side: params.side,
-        type: params.type,
-        price: params.price,
-        amount: params.amount,
-        filled: '0',
-        remaining: params.amount,
-        total,
-        stopPrice: params.stopPrice,
-        time: now,
-        updateTime: now,
-        status: params.type === 'market' ? 'filled' : 'pending',
-      };
+        if (response.success && response.order) {
+          return convertOrder(response.order);
+        }
 
-      // 市价单立即成交
-      if (params.type === 'market') {
-        newOrder.filled = params.amount;
-        newOrder.remaining = '0';
-        newOrder.avgPrice = params.price;
-        
-        // 添加到历史订单
-        setOrderHistory((prev) => [newOrder, ...prev]);
-
-        // 创建成交记录
-        const trade: Trade = {
-          id: `TRD_${now}`,
-          orderId: newOrder.id,
-          symbol: params.symbol,
-          side: params.side,
-          price: params.price,
-          amount: params.amount,
-          total,
-          fee: (parseFloat(total) * 0.001).toFixed(4), // 0.1% 手续费
-          feeAsset: 'USDT',
-          time: now,
-        };
-        setTradeHistory((prev) => [trade, ...prev]);
-      } else {
-        // 限价单挂单
-        setOpenOrders((prev) => [newOrder, ...prev]);
+        // 失败时返回一个带错误状态的订单
+        throw new Error(response.error?.message || '创建订单失败');
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
-      return newOrder;
     },
-    [setOpenOrders, setOrderHistory, setTradeHistory, setLoading]
+    [tradingService, setLoading]
   );
 
   // 撤销单个订单
@@ -96,101 +122,43 @@ export function useOrders() {
     async (orderId: string): Promise<boolean> => {
       setLoading(true);
 
-      // 模拟网络延迟
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      const order = openOrders.find((o) => o.id === orderId);
-      if (!order) {
+      try {
+        const response = tradingService.cancelOrder(Number(orderId));
+        return response.success;
+      } finally {
         setLoading(false);
-        return false;
       }
-
-      // 从当前挂单移除
-      setOpenOrders((prev) => prev.filter((o) => o.id !== orderId));
-
-      // 添加到历史订单（状态为 canceled）
-      const canceledOrder: Order = {
-        ...order,
-        status: 'canceled',
-        updateTime: Date.now(),
-      };
-      setOrderHistory((prev) => [canceledOrder, ...prev]);
-
-      setLoading(false);
-      return true;
     },
-    [openOrders, setOpenOrders, setOrderHistory, setLoading]
+    [tradingService, setLoading]
   );
 
   // 撤销所有挂单
   const cancelAllOrders = useCallback(async (): Promise<number> => {
     setLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const orders = tradingService.getActiveOrders();
+      let count = 0;
 
-    const count = openOrders.length;
-    const now = Date.now();
-
-    // 将所有挂单移到历史
-    const canceledOrders: Order[] = openOrders.map((order) => ({
-      ...order,
-      status: 'canceled' as const,
-      updateTime: now,
-    }));
-
-    setOrderHistory((prev) => [...canceledOrders, ...prev]);
-    setOpenOrders([]);
-
-    setLoading(false);
-    return count;
-  }, [openOrders, setOpenOrders, setOrderHistory, setLoading]);
-
-  // 模拟订单成交（用于测试）
-  const simulateFill = useCallback(
-    async (orderId: string, fillAmount?: string): Promise<boolean> => {
-      const order = openOrders.find((o) => o.id === orderId);
-      if (!order) return false;
-
-      const now = Date.now();
-      const amount = fillAmount || order.remaining;
-      const remaining = (parseFloat(order.remaining) - parseFloat(amount)).toFixed(8);
-      const filled = (parseFloat(order.filled) + parseFloat(amount)).toFixed(8);
-      const isFully = parseFloat(remaining) <= 0;
-
-      // 创建成交记录
-      const trade: Trade = {
-        id: `TRD_${now}`,
-        orderId: order.id,
-        symbol: order.symbol,
-        side: order.side,
-        price: order.price,
-        amount,
-        total: (parseFloat(order.price) * parseFloat(amount)).toFixed(2),
-        fee: (parseFloat(order.price) * parseFloat(amount) * 0.001).toFixed(4),
-        feeAsset: 'USDT',
-        time: now,
-      };
-      setTradeHistory((prev) => [trade, ...prev]);
-
-      if (isFully) {
-        // 完全成交
-        setOpenOrders((prev) => prev.filter((o) => o.id !== orderId));
-        setOrderHistory((prev) => [
-          { ...order, filled, remaining: '0', status: 'filled', updateTime: now, avgPrice: order.price },
-          ...prev,
-        ]);
-      } else {
-        // 部分成交
-        setOpenOrders((prev) =>
-          prev.map((o) =>
-            o.id === orderId ? { ...o, filled, remaining, status: 'partial', updateTime: now } : o
-          )
-        );
+      for (const order of orders) {
+        const response = tradingService.cancelOrder(order.orderId);
+        if (response.success) count++;
       }
 
-      return true;
+      return count;
+    } finally {
+      setLoading(false);
+    }
+  }, [tradingService, setLoading]);
+
+  // 模拟订单成交（保留接口，但不再使用独立的模拟逻辑）
+  const simulateFill = useCallback(
+    async (_orderId: string, _fillAmount?: string): Promise<boolean> => {
+      // MatchingEngine 自动处理成交，此方法仅为接口兼容
+      console.warn('[useOrders] simulateFill is deprecated, use MatchingEngine auto-matching');
+      return false;
     },
-    [openOrders, setOpenOrders, setOrderHistory, setTradeHistory]
+    []
   );
 
   return {

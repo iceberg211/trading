@@ -7,8 +7,8 @@ import { OHLCVPanel } from './OHLCVPanel';
 
 export function ChartContainer() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const { loading, error, wsStatus } = useKlineData();
-  useChartInstance({ container: chartContainerRef.current });
+  const { loading, error, wsStatus, loadMore } = useKlineData();
+  useChartInstance({ container: chartContainerRef.current, onLoadMore: loadMore });
 
   return (
     <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">

@@ -1,15 +1,23 @@
 import { memo } from 'react';
-import { useAtomValue } from 'jotai';
-import { openOrdersAtom, Order } from '../atoms/orderAtom';
 import { useOrders } from '../hooks/useOrders';
 import dayjs from 'dayjs';
+
+interface Order {
+  id: string;
+  symbol: string;
+  side: 'buy' | 'sell';
+  type: 'limit' | 'market' | 'stop_limit';
+  price: string;
+  amount: string;
+  filled: string;
+  time: number;
+}
 
 /**
  * 当前委托列表
  */
 export const OpenOrders = memo(function OpenOrders() {
-  const openOrders = useAtomValue(openOrdersAtom);
-  const { cancelOrder, cancelAllOrders, loading } = useOrders();
+  const { openOrders, cancelOrder, cancelAllOrders, loading } = useOrders();
 
   const handleCancelAll = async () => {
     if (openOrders.length === 0) return;
