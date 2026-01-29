@@ -77,6 +77,43 @@ export function useOrders() {
     return tradingService.getOrderHistory().map(convertOrder);
   }, [tradingService]);
 
+  // 从历史订单的 fills 中提取成交记录
+  const tradeHistory = useMemo(() => {
+    const trades: Array<{
+      id: string;
+      symbol: string;
+      side: 'buy' | 'sell';
+      price: string;
+      amount: string;
+      total: string;
+      fee: string;
+      feeAsset: string;
+      time: number;
+    }> = [];
+
+    const allOrders = tradingService.getOrderHistory();
+    for (const order of allOrders) {
+      if (order.fills && order.fills.length > 0) {
+        for (const fill of order.fills) {
+          trades.push({
+            id: String(fill.tradeId),
+            symbol: order.symbol,
+            side: order.side === 'BUY' ? 'buy' : 'sell',
+            price: fill.price,
+            amount: fill.quantity,
+            total: String(parseFloat(fill.price) * parseFloat(fill.quantity)),
+            fee: fill.commission,
+            feeAsset: fill.commissionAsset,
+            time: fill.time,
+          });
+        }
+      }
+    }
+
+    // 按时间倒序排列
+    return trades.sort((a, b) => b.time - a.time);
+  }, [tradingService]);
+
   // 创建订单 - 代理到 useTradingService
   const createOrder = useCallback(
     async (params: {
@@ -164,6 +201,7 @@ export function useOrders() {
   return {
     openOrders,
     orderHistory,
+    tradeHistory,
     loading,
     createOrder,
     cancelOrder,

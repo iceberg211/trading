@@ -184,7 +184,8 @@ export class MarketDataHub {
       id: this.requestId++,
     };
     
-    this.ws.send(JSON.stringify(message));
+    // 直接传对象，由 WSManager 统一处理序列化
+    this.ws.send(message);
   }
   
   private sendUnsubscribe(streamName: string) {
@@ -198,7 +199,8 @@ export class MarketDataHub {
       id: this.requestId++,
     };
     
-    this.ws.send(JSON.stringify(message));
+    // 直接传对象，由 WSManager 统一处理序列化
+    this.ws.send(message);
   }
   
   private handleMessage(data: unknown) {

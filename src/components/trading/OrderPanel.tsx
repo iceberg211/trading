@@ -1,6 +1,5 @@
 import { useState, memo } from 'react';
-import { useAtomValue } from 'jotai';
-import { openOrdersCountAtom } from '@/features/orders/atoms/orderAtom';
+import { useOrders } from '@/features/orders/hooks/useOrders';
 import { OpenOrders } from '@/features/orders/components/OpenOrders';
 import { OrderHistory } from '@/features/orders/components/OrderHistory';
 import { TradeHistory } from '@/features/orders/components/TradeHistory';
@@ -13,7 +12,9 @@ type TabType = 'open' | 'history' | 'trades';
  */
 export const OrderPanel = memo(function OrderPanel() {
   const [activeTab, setActiveTab] = useState<TabType>('open');
-  const openOrdersCount = useAtomValue(openOrdersCountAtom);
+  // 使用 useOrders 获取真实订单数据
+  const { openOrders } = useOrders();
+  const openOrdersCount = openOrders.length;
 
   const tabs: { key: TabType; label: string; badge?: number }[] = [
     { key: 'open', label: '当前委托', badge: openOrdersCount > 0 ? openOrdersCount : undefined },

@@ -3,7 +3,7 @@
  * 统一管理下单、取消、查询等交易操作
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { orderBookAtom } from '@/features/orderbook/atoms/orderBookAtom';
 import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
@@ -64,6 +64,53 @@ export function useTradingService(): TradingServiceReturn {
   const executeTrade = useSetAtom(executeTradeAtom);
 
   const currentPrice = ticker?.lastPrice || '0';
+  
+  // 防止止损检查重复触发
+  const lastCheckPriceRef = useRef<string>('');
+
+  /**
+   * 止损单触发检查
+   * 在价格变化时自动检查是否有止损单需要触发
+   */
+  useEffect(() => {
+    // 跳过无效价格
+    if (!currentPrice || currentPrice === '0') return;
+    
+    // 跳过相同价格
+    if (currentPrice === lastCheckPriceRef.current) return;
+    lastCheckPriceRef.current = currentPrice;
+
+    // 获取订单簿数据
+    const orderBookData = {
+      bids: orderBook.bids,
+      asks: orderBook.asks,
+    };
+
+    // 检查止损单
+    const triggeredOrders = matchingEngine.checkStopOrders(currentPrice, orderBookData);
+
+    // 处理触发的止损单成交
+    if (triggeredOrders.length > 0) {
+      for (const order of triggeredOrders) {
+        console.log(`[TradingService] Stop order triggered:`, order.orderId, order.status);
+        
+        // 处理成交
+        if (order.fills && order.fills.length > 0) {
+          for (const fill of order.fills) {
+            executeTrade({
+              baseAsset: symbolConfig.baseAsset,
+              quoteAsset: symbolConfig.quoteAsset,
+              side: order.side,
+              baseAmount: fill.quantity,
+              quoteAmount: new Decimal(fill.quantity).times(new Decimal(fill.price)).toFixed(8),
+              commission: fill.commission,
+              commissionAsset: fill.commissionAsset,
+            });
+          }
+        }
+      }
+    }
+  }, [currentPrice, orderBook, symbolConfig, executeTrade]);
 
   /**
    * 提交订单

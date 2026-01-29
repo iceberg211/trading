@@ -71,9 +71,46 @@ export function useOrderBookWorker() {
     ): Promise<MergeResult> => {
       return new Promise((resolve) => {
         if (!workerRef.current) {
-          // Fallback: 主线程处理
+          // Fallback: 主线程处理合并
           console.warn('[OrderBook Worker] Worker not available, falling back to main thread');
-          resolve({ bids: currentBids, asks: currentAsks });
+          
+          // 主线程合并逻辑 - OrderBookItem 是 [price, quantity] tuple
+          const mergeSide = (current: OrderBookItem[], updates: OrderBookItem[], isBid: boolean): OrderBookItem[] => {
+            // 创建价格 -> 数量映射
+            const map = new Map<string, string>();
+            
+            // 添加当前数据 (index 0: price, index 1: quantity)
+            for (const item of current) {
+              map.set(item[0], item[1]);
+            }
+            
+            // 应用更新（数量为 0 表示删除）
+            for (const item of updates) {
+              if (item[1] === '0' || parseFloat(item[1]) === 0) {
+                map.delete(item[0]);
+              } else {
+                map.set(item[0], item[1]);
+              }
+            }
+            
+            // 转换回数组并排序
+            let result: OrderBookItem[] = Array.from(map.entries()).map(([price, quantity]) => [price, quantity] as OrderBookItem);
+            
+            // 排序：买盘降序，卖盘升序
+            result.sort((a, b) => {
+              const priceA = parseFloat(a[0]);
+              const priceB = parseFloat(b[0]);
+              return isBid ? priceB - priceA : priceA - priceB;
+            });
+            
+            // 限制数量
+            return result.slice(0, limit);
+          };
+          
+          const mergedBids = mergeSide(currentBids, updateBids, true);
+          const mergedAsks = mergeSide(currentAsks, updateAsks, false);
+          
+          resolve({ bids: mergedBids, asks: mergedAsks });
           return;
         }
 

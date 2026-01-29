@@ -1,13 +1,26 @@
 import { memo } from 'react';
-import { useAtomValue } from 'jotai';
-import { tradeHistoryAtom, Trade } from '../atoms/orderAtom';
+import { useOrders } from '../hooks/useOrders';
 import dayjs from 'dayjs';
+
+// 成交记录类型
+interface Trade {
+  id: string;
+  symbol: string;
+  side: 'buy' | 'sell';
+  price: string;
+  amount: string;
+  total: string;
+  fee: string;
+  feeAsset: string;
+  time: number;
+}
 
 /**
  * 成交记录列表
  */
 export const TradeHistory = memo(function TradeHistory() {
-  const tradeHistory = useAtomValue(tradeHistoryAtom);
+  // 使用 useOrders 获取真实成交记录
+  const { tradeHistory } = useOrders();
 
   if (tradeHistory.length === 0) {
     return (
@@ -36,7 +49,7 @@ export const TradeHistory = memo(function TradeHistory() {
       {/* 成交列表 */}
       <div className="flex-1 overflow-auto">
         {tradeHistory.map((trade) => (
-          <TradeRow key={trade.id} trade={trade} />
+          <TradeRow key={trade.id} trade={trade as Trade} />
         ))}
       </div>
     </div>

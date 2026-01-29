@@ -1,13 +1,27 @@
 import { memo } from 'react';
-import { useAtomValue } from 'jotai';
-import { orderHistoryAtom, Order } from '../atoms/orderAtom';
+import { useOrders } from '../hooks/useOrders';
 import dayjs from 'dayjs';
+
+// 订单类型与原 Order 接口保持一致
+interface Order {
+  id: string;
+  symbol: string;
+  side: 'buy' | 'sell';
+  type: 'limit' | 'market' | 'stop_limit';
+  price: string;
+  amount: string;
+  filled: string;
+  avgPrice?: string;
+  time: number;
+  status: 'pending' | 'partial' | 'filled' | 'canceled';
+}
 
 /**
  * 历史订单列表
  */
 export const OrderHistory = memo(function OrderHistory() {
-  const orderHistory = useAtomValue(orderHistoryAtom);
+  // 使用 useOrders 获取真实历史订单
+  const { orderHistory } = useOrders();
 
   if (orderHistory.length === 0) {
     return (
@@ -36,7 +50,7 @@ export const OrderHistory = memo(function OrderHistory() {
       {/* 订单列表 */}
       <div className="flex-1 overflow-auto">
         {orderHistory.map((order) => (
-          <HistoryRow key={order.id} order={order} />
+          <HistoryRow key={order.id} order={order as Order} />
         ))}
       </div>
     </div>
