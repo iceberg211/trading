@@ -31,7 +31,7 @@ export function TradingLayout() {
       <NetworkStatusBar />
 
       {/* Top: Ticker Bar (Fixed) */}
-      <div className="shrink-0 border-b border-line">
+      <div className="shrink-0 border-b border-line relative z-50 overflow-visible">
         <SafeSection fallback={<div className="h-14 bg-bg-card animate-pulse" />}>
           <TickerBar />
         </SafeSection>

@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, memo, CSSProperties } from 'react';
+import { useMemo, useState, useCallback, useLayoutEffect, useRef, memo, CSSProperties } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { useOrderBook } from '../hooks/useOrderBook';
 import { DepthChart } from './DepthChart';
@@ -59,6 +59,9 @@ const OrderRow = memo(function OrderRow({
 export function OrderBook() {
   const { orderBook, loading, error, syncStatus } = useOrderBook();
   const [viewMode, setViewMode] = useState<ViewMode>('book');
+  const contentRef = useRef<HTMLDivElement>(null);
+  const spreadRef = useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = useState(160);
 
   // 处理买单数据
   const bids = useMemo(() => {
@@ -91,6 +94,29 @@ export function OrderBook() {
     // TODO: 联动交易表单
   }, []);
 
+  // 根据内容区域高度动态计算列表高度，填满剩余空间
+  useLayoutEffect(() => {
+    const updateHeights = () => {
+      if (!contentRef.current || !spreadRef.current) return;
+      const totalHeight = contentRef.current.clientHeight;
+      const spreadHeight = spreadRef.current.clientHeight;
+      const eachHeight = Math.max(Math.floor((totalHeight - spreadHeight) / 2), 1);
+      setListHeight(eachHeight);
+    };
+
+    updateHeights();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(updateHeights);
+    if (contentRef.current) observer.observe(contentRef.current);
+    if (spreadRef.current) observer.observe(spreadRef.current);
+
+    return () => observer.disconnect();
+  }, [viewMode]);
+
   if (error) {
     return (
       <div className="h-full flex items-center justify-center bg-bg-card">
@@ -100,7 +126,7 @@ export function OrderBook() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-bg-card">
+    <div className="flex flex-col h-full min-h-0 bg-bg-card">
       {/* Header with View Mode Tabs */}
       <div className="px-3 py-2 border-b border-line flex justify-between items-center">
         <div className="flex items-center gap-3">
@@ -154,7 +180,7 @@ export function OrderBook() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-hidden flex flex-col relative min-h-0">
+          <div className="flex-1 overflow-hidden flex flex-col relative min-h-0" ref={contentRef}>
             {loading && orderBook.bids.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-bg-card/80 z-20">
                 <div className="w-5 h-5 border-2 border-up border-t-transparent rounded-full animate-spin" />
@@ -164,7 +190,7 @@ export function OrderBook() {
             {/* Asks (Sell Orders) - Virtual List */}
             <div className="flex-1 min-h-0">
               <List
-                height={150}
+                height={Math.max(listHeight, 1)}
                 itemCount={asks.length}
                 itemSize={20}
                 width="100%"
@@ -178,7 +204,7 @@ export function OrderBook() {
             </div>
 
             {/* Spread / Last Price */}
-            <div className="py-1.5 border-y border-line bg-bg px-3 flex items-center justify-between shrink-0">
+            <div ref={spreadRef} className="py-1.5 border-y border-line bg-bg px-3 flex items-center justify-between shrink-0">
               <div className={`text-lg font-bold ${orderBook.asks.length > 0 ? 'text-up' : 'text-text-tertiary'} font-mono`}>
                 {orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(2) : '--'}
                 <span className="text-xs ml-2 text-text-tertiary font-normal">
@@ -190,7 +216,7 @@ export function OrderBook() {
             {/* Bids (Buy Orders) - Virtual List */}
             <div className="flex-1 min-h-0">
               <List
-                height={150}
+                height={Math.max(listHeight, 1)}
                 itemCount={bids.length}
                 itemSize={20}
                 width="100%"

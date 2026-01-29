@@ -21,7 +21,7 @@ export function useTradeForm() {
   const symbol = useAtomValue(symbolAtom);
   const { createOrder } = useOrders();
 
-  const { qtyPrecision } = symbolConfig;
+  const { quantityPrecision } = symbolConfig;
 
   // 获取当前最优价格
   const getBestPrice = useCallback((side: OrderSide): string => {
@@ -84,11 +84,11 @@ export function useTradeForm() {
   const setTotal = useCallback((total: string) => {
     setForm((prev) => {
       const newAmount = prev.price && total && parseFloat(prev.price) > 0
-        ? new Decimal(total).div(prev.price).toFixed(qtyPrecision)
+        ? new Decimal(total).div(prev.price).toFixed(quantityPrecision)
         : '';
       return { ...prev, total, amount: newAmount };
     });
-  }, [setForm, qtyPrecision]);
+  }, [setForm, quantityPrecision]);
 
   // 百分比快捷设置
   const setPercentage = useCallback((percentage: number) => {
@@ -100,19 +100,19 @@ export function useTradeForm() {
         // 买入：用 USDT 余额计算
         const total = maxValue.times(percentage).div(100).toFixed(2);
         const amount = prev.price && parseFloat(prev.price) > 0
-          ? new Decimal(total).div(prev.price).toFixed(qtyPrecision)
+          ? new Decimal(total).div(prev.price).toFixed(quantityPrecision)
           : '';
         return { ...prev, percentageUsed: percentage, total, amount };
       } else {
         // 卖出：用 BTC 余额计算
-        const amount = maxValue.times(percentage).div(100).toFixed(qtyPrecision);
+        const amount = maxValue.times(percentage).div(100).toFixed(quantityPrecision);
         const total = prev.price
           ? new Decimal(prev.price).times(amount).toFixed(2)
           : '';
         return { ...prev, percentageUsed: percentage, amount, total };
       }
     });
-  }, [setForm, balance, qtyPrecision]);
+  }, [setForm, balance, quantityPrecision]);
 
   // 提交订单 - 使用新的订单管理系统
   const submitOrder = useCallback(async () => {

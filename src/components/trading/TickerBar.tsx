@@ -45,7 +45,7 @@ export function TickerBar() {
   }
 
   return (
-    <div className="relative flex items-center bg-bg-card/90 backdrop-blur border-b border-line-dark">
+    <div className="relative z-40 flex items-center bg-bg-card/90 backdrop-blur border-b border-line-dark">
       <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
 
       {/* Symbol Selector - 独立容器，不受 overflow 影响 */}

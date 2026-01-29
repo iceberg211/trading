@@ -24,6 +24,16 @@ export function SymbolSelector() {
     setIsOpen(false);
   };
 
+  // ESC 关闭
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen]);
+
   return (
     <div className="relative" ref={containerRef}>
       <button
@@ -44,7 +54,10 @@ export function SymbolSelector() {
       </button>
 
       {isOpen && (
-        <Card noPadding className="absolute top-full left-0 mt-1 w-48 z-50 bg-bg-card border-line shadow-xl max-h-64 overflow-y-auto">
+        <Card
+          noPadding
+          className="absolute left-0 top-full mt-2 min-w-[220px] z-[70] bg-bg-card border-line shadow-xl max-h-64 overflow-y-auto"
+        >
           <div className="py-1">
             {POPULAR_SYMBOLS.map((item) => (
               <button
