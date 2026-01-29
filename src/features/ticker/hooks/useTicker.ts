@@ -1,9 +1,9 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { symbolAtom } from '@/features/symbol/atoms/symbolAtom';
 import { tickerAtom, tickerLoadingAtom, tickerErrorAtom } from '../atoms/tickerAtom';
 import { binanceApi } from '@/services/api/binance';
-import { WebSocketManager } from '@/services/websocket/manager';
+import { marketDataHub } from '@/core/gateway';
 import type { Ticker24hr } from '@/types/binance';
 
 // Binance WebSocket 24h Ticker 消息
@@ -35,13 +35,14 @@ interface TickerWsMessage {
 
 /**
  * 24h Ticker 数据管理 Hook
+ * 
+ * 使用 MarketDataHub 统一订阅层
  */
 export function useTicker() {
   const symbol = useAtomValue(symbolAtom);
   const [ticker, setTicker] = useAtom(tickerAtom);
   const [loading, setLoading] = useAtom(tickerLoadingAtom);
   const [error, setError] = useAtom(tickerErrorAtom);
-  const wsManagerRef = useRef<WebSocketManager | null>(null);
 
   /**
    * 加载初始 Ticker 数据
@@ -90,36 +91,26 @@ export function useTicker() {
    * 处理 WebSocket 消息
    */
   const handleWsMessage = useCallback((data: any) => {
-    const msg = data.data || data;
+    const msg = data;
     if (msg.e === '24hrTicker') {
       setTicker(normalizeWsData(msg));
     }
   }, [setTicker]);
 
   /**
-   * 初始化 WebSocket 连接
+   * 初始化 WebSocket 订阅
    */
   useEffect(() => {
     // 加载初始数据
     loadTicker();
 
-    // 订阅实时更新
-    const streamName = `${symbol.toLowerCase()}@ticker`;
-    const wsUrl = `wss://data-stream.binance.vision/stream?streams=${streamName}`;
-
-    const wsManager = new WebSocketManager({
-      url: wsUrl,
-      reconnectInterval: 3000,
-      maxReconnectAttempts: 5,
-    });
-
-    wsManagerRef.current = wsManager;
-    const unsubscribe = wsManager.subscribe(handleWsMessage);
-    wsManager.connect();
+    // 通过 MarketDataHub 订阅实时更新
+    const unsubscribe = marketDataHub.subscribe('ticker', symbol);
+    const unregister = marketDataHub.onMessage('ticker', handleWsMessage);
 
     return () => {
       unsubscribe();
-      wsManager.disconnect();
+      unregister();
     };
   }, [symbol, loadTicker, handleWsMessage]);
 
@@ -130,3 +121,4 @@ export function useTicker() {
     reload: loadTicker,
   };
 }
+

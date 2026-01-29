@@ -2,12 +2,22 @@ import { useRef, useEffect, useCallback } from 'react';
 
 type OrderBookItem = [string, string];
 
+interface MergeResult {
+  bids: OrderBookItem[];
+  asks: OrderBookItem[];
+  processingTime?: number;
+}
+
 interface WorkerResult {
   type: string;
   payload: {
     bids?: OrderBookItem[];
     asks?: OrderBookItem[];
     data?: OrderBookItem[];
+    processingTime?: number;
+    bidTotal?: string;
+    askTotal?: string;
+    imbalance?: number;
   };
 }
 
@@ -18,6 +28,7 @@ interface WorkerResult {
 export function useOrderBookWorker() {
   const workerRef = useRef<Worker | null>(null);
   const callbacksRef = useRef<Map<string, (result: WorkerResult['payload']) => void>>(new Map());
+  const readyRef = useRef(false);
 
   useEffect(() => {
     // 创建 Worker
@@ -40,9 +51,12 @@ export function useOrderBookWorker() {
       console.error('[OrderBook Worker] Error:', error);
     };
 
+    readyRef.current = true;
+
     return () => {
       workerRef.current?.terminate();
       workerRef.current = null;
+      readyRef.current = false;
     };
   }, []);
 
@@ -54,7 +68,7 @@ export function useOrderBookWorker() {
       updateBids: OrderBookItem[],
       updateAsks: OrderBookItem[],
       limit: number = 500
-    ): Promise<{ bids: OrderBookItem[]; asks: OrderBookItem[] }> => {
+    ): Promise<MergeResult> => {
       return new Promise((resolve) => {
         if (!workerRef.current) {
           // Fallback: 主线程处理
@@ -67,6 +81,7 @@ export function useOrderBookWorker() {
           resolve({
             bids: payload.bids || [],
             asks: payload.asks || [],
+            processingTime: payload.processingTime,
           });
         });
 
@@ -105,9 +120,40 @@ export function useOrderBookWorker() {
     []
   );
 
+  // 计算统计数据
+  const calculateStats = useCallback(
+    (
+      bids: OrderBookItem[],
+      asks: OrderBookItem[],
+      levels: number = 20
+    ): Promise<{ bidTotal: string; askTotal: string; imbalance: number }> => {
+      return new Promise((resolve) => {
+        if (!workerRef.current) {
+          resolve({ bidTotal: '0', askTotal: '0', imbalance: 0 });
+          return;
+        }
+
+        callbacksRef.current.set('stats_result', (payload) => {
+          resolve({
+            bidTotal: payload.bidTotal || '0',
+            askTotal: payload.askTotal || '0',
+            imbalance: payload.imbalance || 0,
+          });
+        });
+
+        workerRef.current.postMessage({
+          type: 'calculate_stats',
+          payload: { bids, asks, levels },
+        });
+      });
+    },
+    []
+  );
+
   return {
     mergeDepth,
     sortDepth,
-    isReady: !!workerRef.current,
+    calculateStats,
+    isReady: readyRef.current,
   };
 }

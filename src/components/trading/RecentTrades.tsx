@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAtomValue } from 'jotai';
 import { symbolAtom } from '@/features/chart/atoms/klineAtom';
-import { WebSocketManager } from '@/services/websocket/manager';
+import { marketDataHub } from '@/core/gateway';
 import Decimal from 'decimal.js';
 import dayjs from 'dayjs';
 
@@ -13,13 +13,15 @@ interface TradeItem {
   isBuyerMaker: boolean;
 }
 
+/**
+ * 最近成交记录组件
+ * 使用 MarketDataHub 统一订阅层
+ */
 export function RecentTrades() {
   const symbol = useAtomValue(symbolAtom);
   const [trades, setTrades] = useState<TradeItem[]>([]);
-  const wsManagerRef = useRef<WebSocketManager | null>(null);
 
-  const handleWsMessage = useCallback((eventData: any) => {
-    const data = eventData.data || eventData;
+  const handleWsMessage = useCallback((data: any) => {
     if (data.e !== 'trade') return;
     
     const newTrade: TradeItem = {
@@ -34,22 +36,16 @@ export function RecentTrades() {
   }, []);
 
   useEffect(() => {
-    const streamName = `${symbol.toLowerCase()}@trade`;
-    const wsUrl = `wss://data-stream.binance.vision/stream?streams=${streamName}`;
+    // 切换交易对时清空旧数据
+    setTrades([]);
 
-    const wsManager = new WebSocketManager({
-      url: wsUrl,
-      reconnectInterval: 3000,
-      maxReconnectAttempts: 5,
-    });
-
-    wsManagerRef.current = wsManager;
-    const unsubscribe = wsManager.subscribe(handleWsMessage);
-    wsManager.connect();
+    // 通过 MarketDataHub 订阅
+    const unsubscribe = marketDataHub.subscribe('trade', symbol);
+    const unregister = marketDataHub.onMessage('trade', handleWsMessage);
 
     return () => {
       unsubscribe();
-      wsManager.disconnect();
+      unregister();
     };
   }, [symbol, handleWsMessage]);
 
@@ -68,7 +64,6 @@ export function RecentTrades() {
         <span className="text-right">Time</span>
       </div>
 
-
       {/* Trade List */}
       <div className="flex-1 overflow-y-auto">
         {trades.length === 0 ? (
@@ -81,7 +76,6 @@ export function RecentTrades() {
               key={trade.id}
               className="grid grid-cols-3 gap-2 px-3 py-[2px] text-xs hover:bg-bg-soft/50 transition-colors"
             >
-
               <span className={`font-mono ${trade.isBuyerMaker ? 'text-down' : 'text-up'}`}>
                 {new Decimal(trade.price).toFixed(2)}
               </span>

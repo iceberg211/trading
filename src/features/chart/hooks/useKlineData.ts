@@ -9,12 +9,12 @@ import {
   wsStatusAtom,
 } from '../atoms/klineAtom';
 import { binanceApi } from '@/services/api/binance';
-import { WebSocketManager } from '@/services/websocket/manager';
+import { marketDataHub } from '@/core/gateway';
 import type { BinanceKlineWsMessage, BinanceCombinedStreamMessage, Candle } from '@/types/binance';
 
 /**
  * K 线数据管理 Hook
- * 负责加载历史数据、订阅实时推送、合并更新
+ * 使用 MarketDataHub 统一订阅层
  */
 export function useKlineData() {
   const symbol = useAtomValue(symbolAtom);
@@ -24,7 +24,6 @@ export function useKlineData() {
   const [error, setError] = useAtom(klineErrorAtom);
   const [wsStatus, setWsStatus] = useAtom(wsStatusAtom);
 
-  const wsManagerRef = useRef<WebSocketManager | null>(null);
   const updateBufferRef = useRef<Candle | null>(null);
   const rafIdRef = useRef<number | null>(null);
 
@@ -84,9 +83,9 @@ export function useKlineData() {
   /**
    * 处理 WebSocket 消息
    */
-  const handleWsMessage = useCallback((data: BinanceCombinedStreamMessage | BinanceKlineWsMessage) => {
-    // 处理 Combined Stream 包装
-    const klineMsg = 'stream' in data ? data.data : data;
+  const handleWsMessage = useCallback((data: any) => {
+    // MarketDataHub 已经解包了 Combined Stream
+    const klineMsg = data as BinanceKlineWsMessage;
 
     if (klineMsg.e === 'kline') {
       const k = klineMsg.k;
@@ -104,38 +103,23 @@ export function useKlineData() {
   }, [scheduleUpdate]);
 
   /**
-   * 初始化 WebSocket 连接
+   * 初始化 WebSocket 订阅
    */
   useEffect(() => {
-    // 构建 WebSocket URL（使用 Combined Stream）
-    const streamName = `${symbol.toLowerCase()}@kline_${interval}`;
-    const wsUrl = `wss://data-stream.binance.vision/stream?streams=${streamName}`;
-
-    // 创建 WebSocket 管理器
-    const wsManager = new WebSocketManager({
-      url: wsUrl,
-      reconnectInterval: 3000,
-      maxReconnectAttempts: 5,
-    });
-
-    wsManagerRef.current = wsManager;
-
-    // 订阅消息
-    const unsubscribe = wsManager.subscribe(handleWsMessage);
-
-    // 连接
-    wsManager.connect();
+    // 通过 MarketDataHub 订阅
+    const unsubscribe = marketDataHub.subscribe('kline', symbol, interval);
+    const unregister = marketDataHub.onMessage('kline', handleWsMessage);
 
     // 定期检查连接状态
     const statusCheckInterval = setInterval(() => {
-      setWsStatus(wsManager.getStatus());
+      setWsStatus(marketDataHub.getStatus());
     }, 1000);
 
     // 清理
     return () => {
       clearInterval(statusCheckInterval);
       unsubscribe();
-      wsManager.disconnect();
+      unregister();
       
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);

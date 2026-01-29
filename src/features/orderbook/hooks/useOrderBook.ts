@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { symbolAtom } from '@/features/chart/atoms/klineAtom';
 import {
@@ -7,11 +7,10 @@ import {
   orderBookErrorAtom,
   orderBookSyncStatusAtom,
   orderBookGapCountAtom,
-  OrderBookSyncStatus,
 } from '../atoms/orderBookAtom';
 import { binanceApi } from '@/services/api/binance';
-import { WebSocketManager } from '@/services/websocket/manager';
-import Decimal from 'decimal.js';
+import { marketDataHub } from '@/core/gateway';
+import { useOrderBookWorker } from '@/hooks/useOrderBookWorker';
 
 type OrderBookUpdate = {
   e: string;
@@ -26,7 +25,12 @@ type OrderBookUpdate = {
 // Gap 检测阈值
 const MAX_GAP_RETRIES = 3;
 const GAP_DEBOUNCE_MS = 2000;
+const ORDER_BOOK_LIMIT = 500;
 
+/**
+ * 订单簿数据管理 Hook
+ * 使用 MarketDataHub 统一订阅层 + Worker 进行后台处理
+ */
 export function useOrderBook() {
   const symbol = useAtomValue(symbolAtom);
   const [orderBook, setOrderBook] = useAtom(orderBookAtom);
@@ -34,12 +38,25 @@ export function useOrderBook() {
   const [error, setError] = useAtom(orderBookErrorAtom);
   const [syncStatus, setSyncStatus] = useAtom(orderBookSyncStatusAtom);
   const setGapCount = useSetAtom(orderBookGapCountAtom);
+  
+  // Worker hook
+  const { mergeDepth: workerMerge } = useOrderBookWorker();
+  
+  // 性能监控
+  const [avgProcessingTime, setAvgProcessingTime] = useState(0);
+  const processingTimesRef = useRef<number[]>([]);
 
-  const wsManagerRef = useRef<WebSocketManager | null>(null);
   const bufferRef = useRef<OrderBookUpdate[]>([]);
   const lastUpdateIdRef = useRef<number>(0);
   const gapRetryCountRef = useRef<number>(0);
   const lastGapTimeRef = useRef<number>(0);
+  const orderBookRef = useRef(orderBook);
+  const pendingUpdateRef = useRef(false);
+
+  // 保持 orderBook 引用同步
+  useEffect(() => {
+    orderBookRef.current = orderBook;
+  }, [orderBook]);
 
   const resetState = useCallback(() => {
     setOrderBook({ lastUpdateId: 0, bids: [], asks: [] });
@@ -47,36 +64,9 @@ export function useOrderBook() {
     bufferRef.current = [];
     lastUpdateIdRef.current = 0;
     gapRetryCountRef.current = 0;
+    processingTimesRef.current = [];
+    setAvgProcessingTime(0);
   }, [setOrderBook, setSyncStatus]);
-
-  const mergeDepth = useCallback(
-    (
-      currentList: [string, string][],
-      updates: [string, string][],
-      isBids: boolean
-    ) => {
-      const map = new Map<string, string>();
-      currentList.forEach(([price, qty]) => map.set(price, qty));
-
-      updates.forEach(([price, qty]) => {
-        const q = parseFloat(qty);
-        if (q === 0) {
-          map.delete(price);
-        } else {
-          map.set(price, qty);
-        }
-      });
-
-      return Array.from(map.entries()).sort((a, b) => {
-        const priceA = new Decimal(a[0]);
-        const priceB = new Decimal(b[0]);
-        return isBids
-          ? priceB.minus(priceA).toNumber()
-          : priceA.minus(priceB).toNumber();
-      });
-    },
-    []
-  );
 
   // 重新拉取快照恢复同步
   const recoverFromGap = useCallback(async () => {
@@ -109,8 +99,8 @@ export function useOrderBook() {
       lastUpdateIdRef.current = snapshot.lastUpdateId;
       setOrderBook({
         lastUpdateId: snapshot.lastUpdateId,
-        bids: snapshot.bids.slice(0, 500),
-        asks: snapshot.asks.slice(0, 500),
+        bids: snapshot.bids.slice(0, ORDER_BOOK_LIMIT),
+        asks: snapshot.asks.slice(0, ORDER_BOOK_LIMIT),
       });
       setSyncStatus('synchronized');
       console.log('[OrderBook] Recovery successful, lastUpdateId:', snapshot.lastUpdateId);
@@ -121,8 +111,8 @@ export function useOrderBook() {
   }, [symbol, setOrderBook, setSyncStatus, setError, setGapCount]);
 
   const handleWsMessage = useCallback(
-    (eventData: any) => {
-      const data: OrderBookUpdate = eventData.data || eventData;
+    async (eventData: any) => {
+      const data: OrderBookUpdate = eventData;
 
       if (data.e !== 'depthUpdate') return;
 
@@ -138,7 +128,6 @@ export function useOrderBook() {
       }
 
       // **关键：序列校验** - 检查是否有 Gap
-      // 根据 Binance 文档：后续事件的 U 应该等于前一个事件的 u + 1
       const expectedU = lastUpdateIdRef.current + 1;
       if (data.U > expectedU) {
         console.warn(`[OrderBook] Gap detected: expected U=${expectedU}, got U=${data.U}`);
@@ -147,28 +136,60 @@ export function useOrderBook() {
         return;
       }
 
-      // 正常更新
-      setOrderBook((prev) => {
-        const newBids = mergeDepth(prev.bids, data.b, true);
-        const newAsks = mergeDepth(prev.asks, data.a, false);
-        const LIMIT = 500;
+      // 防止并发更新
+      if (pendingUpdateRef.current) {
+        bufferRef.current.push(data);
+        return;
+      }
+
+      pendingUpdateRef.current = true;
+
+      try {
+        // 使用 Worker 进行后台合并
+        const result = await workerMerge(
+          orderBookRef.current.bids,
+          orderBookRef.current.asks,
+          data.b,
+          data.a,
+          ORDER_BOOK_LIMIT
+        );
+
+        // 记录处理时间
+        if (result.processingTime) {
+          processingTimesRef.current.push(result.processingTime);
+          if (processingTimesRef.current.length > 100) {
+            processingTimesRef.current.shift();
+          }
+          const avg = processingTimesRef.current.reduce((a, b) => a + b, 0) / processingTimesRef.current.length;
+          setAvgProcessingTime(avg);
+        }
 
         lastUpdateIdRef.current = data.u;
-
-        return {
+        
+        setOrderBook({
           lastUpdateId: data.u,
-          bids: newBids.slice(0, LIMIT),
-          asks: newAsks.slice(0, LIMIT),
-        };
-      });
+          bids: result.bids,
+          asks: result.asks,
+        });
 
-      // 成功更新后重置重试计数
-      if (gapRetryCountRef.current > 0) {
-        gapRetryCountRef.current = 0;
-        setGapCount(0);
+        // 成功更新后重置重试计数
+        if (gapRetryCountRef.current > 0) {
+          gapRetryCountRef.current = 0;
+          setGapCount(0);
+        }
+      } finally {
+        pendingUpdateRef.current = false;
+
+        // 处理缓冲区中积压的更新
+        if (bufferRef.current.length > 0) {
+          const nextUpdate = bufferRef.current.shift();
+          if (nextUpdate) {
+            handleWsMessage(nextUpdate);
+          }
+        }
       }
     },
-    [mergeDepth, setOrderBook, setSyncStatus, recoverFromGap, setGapCount]
+    [workerMerge, setOrderBook, setSyncStatus, recoverFromGap, setGapCount]
   );
 
   useEffect(() => {
@@ -176,18 +197,9 @@ export function useOrderBook() {
     setLoading(true);
     setSyncStatus('syncing');
 
-    const streamName = `${symbol.toLowerCase()}@depth`;
-    const wsUrl = `wss://data-stream.binance.vision/stream?streams=${streamName}`;
-
-    const wsManager = new WebSocketManager({
-      url: wsUrl,
-      reconnectInterval: 3000,
-      maxReconnectAttempts: 5,
-    });
-
-    wsManagerRef.current = wsManager;
-    const unsubscribe = wsManager.subscribe(handleWsMessage);
-    wsManager.connect();
+    // 通过 MarketDataHub 订阅
+    const unsubscribe = marketDataHub.subscribe('depth', symbol);
+    const unregister = marketDataHub.onMessage('depth', handleWsMessage);
 
     const initOrderBook = async () => {
       try {
@@ -198,21 +210,33 @@ export function useOrderBook() {
           (u) => u.u > snapshot.lastUpdateId
         );
 
-        let currentBids = snapshot.bids;
-        let currentAsks = snapshot.asks;
         let lastId = snapshot.lastUpdateId;
+        let currentBids = snapshot.bids.slice(0, ORDER_BOOK_LIMIT);
+        let currentAsks = snapshot.asks.slice(0, ORDER_BOOK_LIMIT);
 
-        // 应用有效的增量更新
+        // 应用有效的增量更新（使用 Worker）
         for (const update of validUpdates) {
-          // 第一个有效事件：U <= lastUpdateId+1 && u >= lastUpdateId+1
           if (update.U <= lastId + 1 && update.u >= lastId + 1) {
-            currentBids = mergeDepth(currentBids, update.b, true);
-            currentAsks = mergeDepth(currentAsks, update.a, false);
+            const result = await workerMerge(
+              currentBids,
+              currentAsks,
+              update.b,
+              update.a,
+              ORDER_BOOK_LIMIT
+            );
+            currentBids = result.bids;
+            currentAsks = result.asks;
             lastId = update.u;
           } else if (update.U === lastId + 1) {
-            // 后续连续事件
-            currentBids = mergeDepth(currentBids, update.b, true);
-            currentAsks = mergeDepth(currentAsks, update.a, false);
+            const result = await workerMerge(
+              currentBids,
+              currentAsks,
+              update.b,
+              update.a,
+              ORDER_BOOK_LIMIT
+            );
+            currentBids = result.bids;
+            currentAsks = result.asks;
             lastId = update.u;
           }
         }
@@ -220,14 +244,14 @@ export function useOrderBook() {
         lastUpdateIdRef.current = lastId;
         setOrderBook({
           lastUpdateId: lastId,
-          bids: currentBids.slice(0, 500),
-          asks: currentAsks.slice(0, 500),
+          bids: currentBids,
+          asks: currentAsks,
         });
 
         bufferRef.current = [];
         setLoading(false);
         setSyncStatus('synchronized');
-        console.log('[OrderBook] Initialized, lastUpdateId:', lastId);
+        console.log('[OrderBook] Initialized with Worker, lastUpdateId:', lastId);
       } catch (err) {
         setError('初始化订单簿失败');
         setLoading(false);
@@ -240,15 +264,16 @@ export function useOrderBook() {
 
     return () => {
       unsubscribe();
-      wsManager.disconnect();
+      unregister();
       resetState();
     };
-  }, [symbol, handleWsMessage, mergeDepth, resetState, setOrderBook, setLoading, setError, setSyncStatus]);
+  }, [symbol, handleWsMessage, workerMerge, resetState, setOrderBook, setLoading, setError, setSyncStatus]);
 
   return {
     orderBook,
     loading,
     error,
     syncStatus,
+    avgProcessingTime, // 新增：平均处理时间（ms）
   };
 }
