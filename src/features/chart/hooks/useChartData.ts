@@ -73,15 +73,15 @@ export function useChartData({
     const prevLength = dataLengthRef.current;
     
     // 判断是否需要全量重置
-    const shouldReset =
-      lastStartTimeRef.current === null ||
-      klineData.length < prevLength ||
-      currentStartTime !== lastStartTimeRef.current;
+    // 只有在首次加载、数据减少、或开始时间变化时才需要重置
+    const isFirstLoad = lastStartTimeRef.current === null;
+    const dataReduced = klineData.length < prevLength;
+    const startTimeChanged = lastStartTimeRef.current !== null && currentStartTime !== lastStartTimeRef.current;
+    
+    const shouldReset = isFirstLoad || dataReduced || startTimeChanged;
 
-    const hasPrependedData =
-      lastStartTimeRef.current !== null &&
-      currentStartTime !== lastStartTimeRef.current &&
-      klineData.length > prevLength;
+    // 判断是否是加载更多历史数据（prepend）
+    const hasPrependedData = startTimeChanged && klineData.length > prevLength;
 
     if (shouldReset) {
       const prevRange = chartInstance.timeScale().getVisibleLogicalRange();
@@ -91,19 +91,19 @@ export function useChartData({
       lineSeries.setData(klineData.map(toLinePoint));
       volumeSeries.setData(klineData.map((c) => toVolumeData(c, CHART_COLORS.upColor, CHART_COLORS.downColor)));
 
-      // 调整视图
-      if (lastStartTimeRef.current === null) {
+      // 调整视图 - 只在首次加载时 fitContent
+      if (isFirstLoad) {
         chartInstance.timeScale().fitContent();
         autoScroll.current = true;
       } else if (hasPrependedData && prevRange) {
+        // 加载更多历史数据时，保持当前视图位置
         const addedBars = klineData.length - prevLength;
         chartInstance.timeScale().setVisibleLogicalRange({
           from: prevRange.from + addedBars,
           to: prevRange.to + addedBars,
         });
-      } else {
-        chartInstance.timeScale().fitContent();
       }
+      // 其他情况（如切换周期导致的重置）不调用 fitContent，保持用户当前视图
     } else {
       // 增量更新
       const lastCandle = klineData[klineData.length - 1];

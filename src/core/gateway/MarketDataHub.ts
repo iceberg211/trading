@@ -61,7 +61,7 @@ export class MarketDataHub {
     // 连接 WebSocket
     this.ws.connect();
     
-    // 监听连接状态变化
+    // 监听连接状态变化 - 使用 1000ms 快速轮询以及时检测连接状态
     const checkStatusInterval = setInterval(() => {
       const status = this.ws.getStatus();
       const wasConnected = this.isConnected;
@@ -69,7 +69,7 @@ export class MarketDataHub {
       
       // 连接成功时重新订阅
       if (!wasConnected && this.isConnected) {
-        console.log('[MarketDataHub] WebSocket connected');
+        console.log('[MarketDataHub] WebSocket connected, resubscribing all streams...');
         this.resubscribeAll();
         this.notifyStatusChange('connected');
       }
@@ -79,7 +79,7 @@ export class MarketDataHub {
         console.log('[MarketDataHub] WebSocket disconnected');
         this.notifyStatusChange(status as HubStatus);
       }
-    }, 1000);
+    }, 1000); // 1000ms 快速轮询
     
     // 保存定时器引用用于清理
     (this as any).statusCheckInterval = checkStatusInterval;

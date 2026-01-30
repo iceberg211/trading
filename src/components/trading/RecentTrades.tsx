@@ -65,12 +65,20 @@ export function RecentTrades() {
   const loadHistoricalTrades = useCallback(async (sym: string) => {
     try {
       setLoading(true);
+      
+      // 添加超时控制
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+      
       const response = await fetch(
-        `https://api.binance.com/api/v3/trades?symbol=${sym}&limit=${MAX_TRADES}`
+        `https://api.binance.com/api/v3/trades?symbol=${sym}&limit=${MAX_TRADES}`,
+        { signal: controller.signal }
       );
       
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch trades');
+        throw new Error(`Failed to fetch trades: ${response.status}`);
       }
 
       const data: Array<{
@@ -95,8 +103,13 @@ export function RecentTrades() {
       setTrades(historicalTrades);
       initializedRef.current = true;
       console.log(`[RecentTrades] Loaded ${historicalTrades.length} historical trades for ${sym}`);
-    } catch (err) {
-      console.error('[RecentTrades] Failed to load historical trades:', err);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.error('[RecentTrades] Request timeout');
+      } else {
+        console.error('[RecentTrades] Failed to load historical trades:', err);
+      }
+      // 即使失败也结束 loading 状态
     } finally {
       setLoading(false);
     }
