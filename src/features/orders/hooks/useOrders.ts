@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useAtom } from 'jotai';
+import Decimal from 'decimal.js';
 import { ordersLoadingAtom } from '../atoms/orderAtom';
 import { useTradingService } from '@/domain/trading';
 import type { Order as DomainOrder, OrderResponse } from '@/domain/trading/types';
@@ -39,8 +40,8 @@ function convertOrder(domainOrder: DomainOrder): Order {
   };
 
   const filled = domainOrder.executedQty;
-  const remaining = String(parseFloat(domainOrder.origQty) - parseFloat(filled));
-  const total = String(parseFloat(domainOrder.price) * parseFloat(domainOrder.origQty));
+  const remaining = new Decimal(domainOrder.origQty).minus(filled).toString();
+  const total = new Decimal(domainOrder.price).times(domainOrder.origQty).toString();
 
   return {
     id: String(domainOrder.orderId),
@@ -101,7 +102,7 @@ export function useOrders() {
             side: order.side === 'BUY' ? 'buy' : 'sell',
             price: fill.price,
             amount: fill.quantity,
-            total: String(parseFloat(fill.price) * parseFloat(fill.quantity)),
+            total: new Decimal(fill.price).times(fill.quantity).toString(),
             fee: fill.commission,
             feeAsset: fill.commissionAsset,
             time: fill.time,
