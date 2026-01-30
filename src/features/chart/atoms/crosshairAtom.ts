@@ -11,6 +11,8 @@ export interface CrosshairData {
   close: number;
   volume?: number;
   changePercent?: number;
+  ma?: number;
+  ema?: number;
 }
 
 export const crosshairDataAtom = atom<CrosshairData | null>(null);

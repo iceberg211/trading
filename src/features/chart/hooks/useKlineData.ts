@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import {
   symbolAtom,
@@ -30,6 +30,8 @@ export function useKlineData() {
   const [loading, setLoading] = useAtom(klineLoadingAtom);
   const [error, setError] = useAtom(klineErrorAtom);
   const [wsStatus, setWsStatus] = useAtom(wsStatusAtom);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const updateBufferRef = useRef<Candle | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -44,6 +46,7 @@ export function useKlineData() {
     // 标记旧请求失效，避免切换交易对后覆盖新数据
     loadRequestIdRef.current += 1;
     loadMoreRequestIdRef.current += 1;
+    setHasMore(true);
   }, [symbol, interval]);
 
   /**
@@ -62,6 +65,9 @@ export function useKlineData() {
       if (latestSymbolRef.current !== symbol || latestIntervalRef.current !== interval) return;
       
       setKlineData(trimKlines(candles));
+      if (candles.length < 500) {
+        setHasMore(false);
+      }
     } catch (err) {
       if (requestId !== loadRequestIdRef.current) return;
       setError(err instanceof Error ? err.message : '加载数据失败');
@@ -78,13 +84,14 @@ export function useKlineData() {
    */
   const loadMore = useCallback(async (): Promise<number> => {
     // 防止无效请求
-    if (klineData.length === 0 || loading) return 0;
+    if (klineData.length === 0 || loading || loadingMore || !hasMore) return 0;
 
     const firstCandle = klineData[0];
     const endTime = firstCandle.time * 1000 - 1; // 毫秒，减1避免重复
     const requestId = ++loadMoreRequestIdRef.current;
 
     try {
+      setLoadingMore(true);
       const olderCandles = await binanceApi.getKlines(symbol, interval, 200, endTime);
       
       // 忽略过期响应
@@ -93,6 +100,7 @@ export function useKlineData() {
       
       if (olderCandles.length === 0) {
         console.log('[useKlineData] No more historical data available');
+        setHasMore(false);
         return 0;
       }
 
@@ -106,11 +114,19 @@ export function useKlineData() {
         console.log(`[useKlineData] Loaded ${newCandles.length} more candles`);
         return trimKlines([...newCandles, ...prev]);
       });
+      
+      if (olderCandles.length < 200) {
+        setHasMore(false);
+      }
 
       return olderCandles.length;
     } catch (err) {
       console.error('[useKlineData] Failed to load more data:', err);
       return 0;
+    } finally {
+      if (requestId === loadMoreRequestIdRef.current) {
+        setLoadingMore(false);
+      }
     }
   }, [klineData, loading, symbol, interval, setKlineData]);
 
@@ -222,6 +238,8 @@ export function useKlineData() {
     wsStatus,
     reload: loadHistoricalData,
     loadMore,
+    loadingMore,
+    hasMore,
   };
 }
 

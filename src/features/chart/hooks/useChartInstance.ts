@@ -9,23 +9,42 @@ import type { Candle } from '@/types/binance';
 interface UseChartInstanceOptions {
   container: HTMLDivElement | null;
   onLoadMore?: () => Promise<number>;
+  chartType?: 'candles' | 'line';
+  showVolume?: boolean;
+  showMA?: boolean;
+  showEMA?: boolean;
 }
 
 /**
  * Lightweight Charts 实例管理 Hook
  */
-export function useChartInstance({ container, onLoadMore }: UseChartInstanceOptions) {
+const MA_PERIOD = 7;
+const EMA_PERIOD = 25;
+
+export function useChartInstance({
+  container,
+  onLoadMore,
+  chartType = 'candles',
+  showVolume = true,
+  showMA = true,
+  showEMA = false,
+}: UseChartInstanceOptions) {
   const klineData = useAtomValue(klineDataAtom);
   const setCrosshairData = useSetAtom(crosshairDataAtom);
   const symbolConfig = useAtomValue(symbolConfigAtom);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const maSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const emaSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const lastDataLengthRef = useRef(0);
   const lastDataStartTimeRef = useRef<number | null>(null);
   const autoScrollRef = useRef(true);
-  // 缓存成交量（用于十字线查询）
+  // 缓存指标数据（用于十字线查询）
   const klineVolumeMapRef = useRef<Map<number, number>>(new Map());
+  const maMapRef = useRef<Map<number, number>>(new Map());
+  const emaMapRef = useRef<Map<number, number>>(new Map());
   // 左侧翻页状态
   const isLoadingMoreRef = useRef(false);
   const lastLoadMoreTimeRef = useRef(0);
@@ -95,6 +114,13 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
 
     candleSeriesRef.current = candleSeries;
     
+    // 折线图系列
+    const lineSeries = chart.addLineSeries({
+      color: '#FCD535',
+      lineWidth: 2,
+    });
+    lineSeriesRef.current = lineSeries;
+    
     // 成交量柱状图
     const volumeSeries = chart.addHistogramSeries({
       priceScaleId: 'volume',
@@ -108,6 +134,21 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
     });
 
     volumeSeriesRef.current = volumeSeries;
+    
+    // MA / EMA 系列
+    const maSeries = chart.addLineSeries({
+      color: '#4BD4FF',
+      lineWidth: 1,
+      lineStyle: 0,
+    });
+    maSeriesRef.current = maSeries;
+    
+    const emaSeries = chart.addLineSeries({
+      color: '#FFB86B',
+      lineWidth: 1,
+      lineStyle: 0,
+    });
+    emaSeriesRef.current = emaSeries;
 
     const handleVisibleRangeChange = (range: LogicalRange | null) => {
       if (!range) return;
@@ -163,6 +204,8 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
       // 查找对应的成交量
       const time = typeof param.time === 'number' ? param.time : 0;
       const volume = klineVolumeMapRef.current.get(time);
+      const ma = maMapRef.current.get(time);
+      const ema = emaMapRef.current.get(time);
 
       setCrosshairData({
         time,
@@ -171,6 +214,8 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
         low: ohlc.low,
         close: ohlc.close,
         volume: volume !== undefined ? volume : undefined,
+        ma: ma !== undefined ? ma : undefined,
+        ema: ema !== undefined ? ema : undefined,
         changePercent,
       });
     };
@@ -197,9 +242,20 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
     } else {
       window.addEventListener('resize', handleResize);
     }
+    
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      chart.applyOptions({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibility);
 
     // 清理
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (resizeObserver) {
         resizeObserver.disconnect();
       } else {
@@ -230,19 +286,64 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
     color: parseFloat(candle.close) >= parseFloat(candle.open) ? '#0ECB81' : '#F6465D',
   });
 
+  const toLinePoint = (candle: Candle) => ({
+    time: candle.time as any,
+    value: parseFloat(candle.close),
+  });
+
+  const calculateMA = (data: Candle[], period: number) => {
+    const result: Array<{ time: number; value: number }> = [];
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const close = parseFloat(data[i].close);
+      sum += close;
+      if (i >= period) {
+        sum -= parseFloat(data[i - period].close);
+      }
+      if (i >= period - 1) {
+        result.push({ time: data[i].time, value: sum / period });
+      }
+    }
+    return result;
+  };
+
+  const calculateEMA = (data: Candle[], period: number) => {
+    const result: Array<{ time: number; value: number }> = [];
+    const k = 2 / (period + 1);
+    let ema = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const close = parseFloat(data[i].close);
+      if (i === 0) {
+        ema = close;
+      } else {
+        ema = close * k + ema * (1 - k);
+      }
+      if (i >= period - 1) {
+        result.push({ time: data[i].time, value: ema });
+      }
+    }
+    return result;
+  };
+
   /**
    * 更新图表数据
    */
   useEffect(() => {
     const chart = chartRef.current;
     const candleSeries = candleSeriesRef.current;
+    const lineSeries = lineSeriesRef.current;
     const volumeSeries = volumeSeriesRef.current;
+    const maSeries = maSeriesRef.current;
+    const emaSeries = emaSeriesRef.current;
 
-    if (!chart || !candleSeries || !volumeSeries) return;
+    if (!chart || !candleSeries || !lineSeries || !volumeSeries || !maSeries || !emaSeries) return;
 
     if (klineData.length === 0) {
       lastDataLengthRef.current = 0;
       lastDataStartTimeRef.current = null;
+      klineVolumeMapRef.current = new Map();
+      maMapRef.current = new Map();
+      emaMapRef.current = new Map();
       return;
     }
 
@@ -260,7 +361,13 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
     if (shouldReset) {
       const prevRange = chart.timeScale().getVisibleLogicalRange();
       candleSeries.setData(klineData.map(toChartCandle));
+      lineSeries.setData(klineData.map(toLinePoint));
       volumeSeries.setData(klineData.map(toVolumeData));
+      
+      const maData = calculateMA(klineData, MA_PERIOD);
+      const emaData = calculateEMA(klineData, EMA_PERIOD);
+      maSeries.setData(maData);
+      emaSeries.setData(emaData);
       
       // 只在首次加载时自动适配内容范围
       // 后续更新不强制改变用户的滚动位置
@@ -283,7 +390,12 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
       // 增量更新：只更新最后一根 K 线
       const lastCandle = klineData[klineData.length - 1];
       candleSeries.update(toChartCandle(lastCandle));
+      lineSeries.update(toLinePoint(lastCandle));
       volumeSeries.update(toVolumeData(lastCandle));
+      const maData = calculateMA(klineData, MA_PERIOD);
+      const emaData = calculateEMA(klineData, EMA_PERIOD);
+      maSeries.setData(maData);
+      emaSeries.setData(emaData);
 
       // 只有当用户在最右侧时才自动滚动跟随
       if (autoScrollRef.current) {
@@ -300,7 +412,37 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
       volumeMap.set(candle.time, parseFloat(candle.volume));
     }
     klineVolumeMapRef.current = volumeMap;
+    
+    const maMap = new Map<number, number>();
+    const maData = calculateMA(klineData, MA_PERIOD);
+    for (const item of maData) {
+      maMap.set(item.time, item.value);
+    }
+    maMapRef.current = maMap;
+    
+    const emaMap = new Map<number, number>();
+    const emaData = calculateEMA(klineData, EMA_PERIOD);
+    for (const item of emaData) {
+      emaMap.set(item.time, item.value);
+    }
+    emaMapRef.current = emaMap;
   }, [klineData]);
+
+  // 视图切换与指标显示
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    const lineSeries = lineSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+    const maSeries = maSeriesRef.current;
+    const emaSeries = emaSeriesRef.current;
+    if (!candleSeries || !lineSeries || !volumeSeries || !maSeries || !emaSeries) return;
+    
+    candleSeries.applyOptions({ visible: chartType === 'candles' });
+    lineSeries.applyOptions({ visible: chartType === 'line' });
+    volumeSeries.applyOptions({ visible: showVolume });
+    maSeries.applyOptions({ visible: showMA });
+    emaSeries.applyOptions({ visible: showEMA });
+  }, [chartType, showVolume, showMA, showEMA]);
   
   // 根据交易对精度配置价格轴
   useEffect(() => {
@@ -324,8 +466,23 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
   }, [symbolConfig?.pricePrecision, symbolConfig?.tickSize]);
 
 
+  const resetScale = () => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    chart.timeScale().fitContent();
+  };
+
+  const goToLatest = () => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    autoScrollRef.current = true;
+    chart.timeScale().scrollToRealTime();
+  };
+
   return {
     chart: chartRef.current,
     candleSeries: candleSeriesRef.current,
+    resetScale,
+    goToLatest,
   };
 }

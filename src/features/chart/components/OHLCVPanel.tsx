@@ -103,6 +103,24 @@ export function OHLCVPanel() {
           </span>
         </div>
       )}
+
+      {/* MA / EMA */}
+      {data.ma !== undefined && (
+        <div className="flex items-center gap-1">
+          <span className="text-text-tertiary">MA</span>
+          <span className="font-mono text-[#4BD4FF]">
+            {formatPrice(data.ma)}
+          </span>
+        </div>
+      )}
+      {data.ema !== undefined && (
+        <div className="flex items-center gap-1">
+          <span className="text-text-tertiary">EMA</span>
+          <span className="font-mono text-[#FFB86B]">
+            {formatPrice(data.ema)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

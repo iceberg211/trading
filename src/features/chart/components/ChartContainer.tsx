@@ -7,8 +7,20 @@ import { OHLCVPanel } from './OHLCVPanel';
 
 export function ChartContainer() {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
-  const { loading, error, wsStatus, loadMore } = useKlineData();
-  useChartInstance({ container: containerEl, onLoadMore: loadMore });
+  const { loading, error, wsStatus, loadMore, loadingMore, hasMore } = useKlineData();
+  const [chartType, setChartType] = useState<'candles' | 'line'>('candles');
+  const [showVolume, setShowVolume] = useState(true);
+  const [showMA, setShowMA] = useState(true);
+  const [showEMA, setShowEMA] = useState(false);
+  
+  const { resetScale, goToLatest } = useChartInstance({
+    container: containerEl,
+    onLoadMore: loadMore,
+    chartType,
+    showVolume,
+    showMA,
+    showEMA,
+  });
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
     setContainerEl(node);
   }, []);
@@ -17,7 +29,18 @@ export function ChartContainer() {
     <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
       {/* 工具栏 */}
       <div className="border-b border-line-dark px-2 bg-bg-soft/70">
-         <ChartToolbar />
+         <ChartToolbar
+           chartType={chartType}
+           showVolume={showVolume}
+           showMA={showMA}
+           showEMA={showEMA}
+           onChangeChartType={setChartType}
+           onToggleVolume={() => setShowVolume((v) => !v)}
+           onToggleMA={() => setShowMA((v) => !v)}
+           onToggleEMA={() => setShowEMA((v) => !v)}
+           onResetScale={resetScale}
+           onGoToLatest={goToLatest}
+         />
        </div>
 
 
@@ -57,6 +80,17 @@ export function ChartContainer() {
               <div className="w-2.5 h-2.5 border border-up border-t-transparent rounded-full animate-spin" />
               <span className="text-text-secondary">Loading...</span>
             </div>
+          )}
+          
+          {loadingMore && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 border border-accent border-t-transparent rounded-full animate-spin" />
+              <span className="text-text-secondary">Loading more...</span>
+            </div>
+          )}
+          
+          {!hasMore && !loading && !loadingMore && (
+            <span className="text-text-tertiary">No more data</span>
           )}
         </div>
 
