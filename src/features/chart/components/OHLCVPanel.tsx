@@ -60,6 +60,14 @@ export function OHLCVPanel() {
         <span className="text-text-secondary font-mono">{formatTime(data.time)}</span>
       </div>
 
+      {/* 十字线价格（鼠标 Y 轴位置的真实价格）*/}
+      {data.cursorPrice !== undefined && (
+        <div className="flex items-center gap-1">
+          <span className="text-text-tertiary">价格</span>
+          <span className="font-mono font-medium text-accent">{formatPrice(data.cursorPrice)}</span>
+        </div>
+      )}
+
       {/* 开盘价 */}
       <div className="flex items-center gap-1">
         <span className="text-text-tertiary">开</span>

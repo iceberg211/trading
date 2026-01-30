@@ -207,6 +207,15 @@ export function useChartInstance({
       const ma = maMapRef.current.get(time);
       const ema = emaMapRef.current.get(time);
 
+      // 使用 coordinateToPrice 获取十字线 Y 轴位置的真实价格
+      let cursorPrice: number | undefined;
+      if (param.point && typeof param.point.y === 'number') {
+        const price = candleSeries.coordinateToPrice(param.point.y);
+        if (price !== null) {
+          cursorPrice = price;
+        }
+      }
+
       setCrosshairData({
         time,
         open: ohlc.open,
@@ -217,6 +226,7 @@ export function useChartInstance({
         ma: ma !== undefined ? ma : undefined,
         ema: ema !== undefined ? ema : undefined,
         changePercent,
+        cursorPrice,
       });
     };
 
@@ -267,7 +277,10 @@ export function useChartInstance({
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
+      lineSeriesRef.current = null;
       volumeSeriesRef.current = null;
+      maSeriesRef.current = null;
+      emaSeriesRef.current = null;
     };
 
   }, [container, setCrosshairData]);
@@ -292,7 +305,7 @@ export function useChartInstance({
   });
 
   const calculateMA = (data: Candle[], period: number) => {
-    const result: Array<{ time: number; value: number }> = [];
+    const result: Array<{ time: any; value: number }> = [];
     let sum = 0;
     for (let i = 0; i < data.length; i += 1) {
       const close = parseFloat(data[i].close);
@@ -301,14 +314,14 @@ export function useChartInstance({
         sum -= parseFloat(data[i - period].close);
       }
       if (i >= period - 1) {
-        result.push({ time: data[i].time, value: sum / period });
+        result.push({ time: data[i].time as any, value: sum / period });
       }
     }
     return result;
   };
 
   const calculateEMA = (data: Candle[], period: number) => {
-    const result: Array<{ time: number; value: number }> = [];
+    const result: Array<{ time: any; value: number }> = [];
     const k = 2 / (period + 1);
     let ema = 0;
     for (let i = 0; i < data.length; i += 1) {
@@ -319,7 +332,7 @@ export function useChartInstance({
         ema = close * k + ema * (1 - k);
       }
       if (i >= period - 1) {
-        result.push({ time: data[i].time, value: ema });
+        result.push({ time: data[i].time as any, value: ema });
       }
     }
     return result;
@@ -364,11 +377,6 @@ export function useChartInstance({
       lineSeries.setData(klineData.map(toLinePoint));
       volumeSeries.setData(klineData.map(toVolumeData));
       
-      const maData = calculateMA(klineData, MA_PERIOD);
-      const emaData = calculateEMA(klineData, EMA_PERIOD);
-      maSeries.setData(maData);
-      emaSeries.setData(emaData);
-      
       // 只在首次加载时自动适配内容范围
       // 后续更新不强制改变用户的滚动位置
       if (lastDataStartTimeRef.current === null) {
@@ -392,10 +400,6 @@ export function useChartInstance({
       candleSeries.update(toChartCandle(lastCandle));
       lineSeries.update(toLinePoint(lastCandle));
       volumeSeries.update(toVolumeData(lastCandle));
-      const maData = calculateMA(klineData, MA_PERIOD);
-      const emaData = calculateEMA(klineData, EMA_PERIOD);
-      maSeries.setData(maData);
-      emaSeries.setData(emaData);
 
       // 只有当用户在最右侧时才自动滚动跟随
       if (autoScrollRef.current) {
@@ -403,10 +407,18 @@ export function useChartInstance({
       }
     }
 
+    // 统一计算 MA/EMA，避免重复计算
+    const maData = calculateMA(klineData, MA_PERIOD);
+    const emaData = calculateEMA(klineData, EMA_PERIOD);
+    
+    // 更新指标系列
+    maSeries.setData(maData);
+    emaSeries.setData(emaData);
+
     lastDataLengthRef.current = klineData.length;
     lastDataStartTimeRef.current = currentStartTime;
     
-    // 同步成交量数据供十字线查询
+    // 同步数据供十字线查询（复用已计算的指标数据）
     const volumeMap = new Map<number, number>();
     for (const candle of klineData) {
       volumeMap.set(candle.time, parseFloat(candle.volume));
@@ -414,14 +426,12 @@ export function useChartInstance({
     klineVolumeMapRef.current = volumeMap;
     
     const maMap = new Map<number, number>();
-    const maData = calculateMA(klineData, MA_PERIOD);
     for (const item of maData) {
       maMap.set(item.time, item.value);
     }
     maMapRef.current = maMap;
     
     const emaMap = new Map<number, number>();
-    const emaData = calculateEMA(klineData, EMA_PERIOD);
     for (const item of emaData) {
       emaMap.set(item.time, item.value);
     }

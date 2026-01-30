@@ -203,16 +203,14 @@ export function useKlineData() {
     const unsubscribe = marketDataHub.subscribe('kline', symbol, interval);
     const unregister = marketDataHub.onMessage('kline', handleWsMessage);
 
-    // 定期检查连接状态
-    const statusCheckInterval = setInterval(() => {
-      setWsStatus(marketDataHub.getStatus());
-    }, 1000);
+    // 使用事件监听替代轮询
+    const unregisterStatus = marketDataHub.onStatusChange(setWsStatus);
 
     // 清理
     return () => {
-      clearInterval(statusCheckInterval);
       unsubscribe();
       unregister();
+      unregisterStatus();
       
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);

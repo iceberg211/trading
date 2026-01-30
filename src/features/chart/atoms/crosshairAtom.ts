@@ -13,6 +13,8 @@ export interface CrosshairData {
   changePercent?: number;
   ma?: number;
   ema?: number;
+  /** 十字线 Y 轴位置对应的真实价格 */
+  cursorPrice?: number;
 }
 
 export const crosshairDataAtom = atom<CrosshairData | null>(null);

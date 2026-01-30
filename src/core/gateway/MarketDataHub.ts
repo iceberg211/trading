@@ -24,6 +24,7 @@ export class MarketDataHub {
   private ws: WebSocketManager;
   private subscriptionManager: SubscriptionManager;
   private messageHandlers: Map<string, Set<MessageHandler>>;
+  private statusChangeHandlers: Set<(status: HubStatus) => void>;
   private requestId = 1;
   private isConnected = false;
   
@@ -39,6 +40,7 @@ export class MarketDataHub {
     
     this.subscriptionManager = new SubscriptionManager();
     this.messageHandlers = new Map();
+    this.statusChangeHandlers = new Set();
     
     this.setupWebSocket();
   }
@@ -69,11 +71,13 @@ export class MarketDataHub {
       if (!wasConnected && this.isConnected) {
         console.log('[MarketDataHub] WebSocket connected');
         this.resubscribeAll();
+        this.notifyStatusChange('connected');
       }
       
       // 断开时记录
       if (wasConnected && !this.isConnected) {
         console.log('[MarketDataHub] WebSocket disconnected');
+        this.notifyStatusChange(status as HubStatus);
       }
     }, 1000);
     
@@ -151,6 +155,30 @@ export class MarketDataHub {
   getStatus(): HubStatus {
     if (this.isConnected) return 'connected';
     return this.ws.getStatus() as HubStatus;
+  }
+  
+  /**
+   * 订阅状态变化事件（替代轮询）
+   * @param handler 状态变化回调
+   * @returns 取消订阅函数
+   */
+  onStatusChange(handler: (status: HubStatus) => void): () => void {
+    this.statusChangeHandlers.add(handler);
+    // 立即通知当前状态
+    handler(this.getStatus());
+    return () => {
+      this.statusChangeHandlers.delete(handler);
+    };
+  }
+  
+  private notifyStatusChange(status: HubStatus) {
+    for (const handler of this.statusChangeHandlers) {
+      try {
+        handler(status);
+      } catch (err) {
+        console.error('[MarketDataHub] Status change handler error:', err);
+      }
+    }
   }
   
   private buildStreamName(config: StreamConfig): string {
