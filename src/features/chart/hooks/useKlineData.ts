@@ -13,6 +13,8 @@ import { marketDataHub } from '@/core/gateway';
 import type { BinanceKlineWsMessage, Candle } from '@/types/binance';
 
 const MAX_KLINES = 3000;
+const INITIAL_KLINES = 200;
+const LOAD_MORE_KLINES = 200;
 
 function trimKlines(data: Candle[]): Candle[] {
   if (data.length <= MAX_KLINES) return data;
@@ -58,14 +60,14 @@ export function useKlineData() {
     setError(null);
 
     try {
-      const candles = await binanceApi.getKlines(symbol, interval, 500);
+      const candles = await binanceApi.getKlines(symbol, interval, INITIAL_KLINES);
       
       // 忽略过期响应
       if (requestId !== loadRequestIdRef.current) return;
       if (latestSymbolRef.current !== symbol || latestIntervalRef.current !== interval) return;
       
       setKlineData(trimKlines(candles));
-      if (candles.length < 500) {
+      if (candles.length < INITIAL_KLINES) {
         setHasMore(false);
       }
     } catch (err) {
@@ -92,7 +94,7 @@ export function useKlineData() {
 
     try {
       setLoadingMore(true);
-      const olderCandles = await binanceApi.getKlines(symbol, interval, 200, endTime);
+      const olderCandles = await binanceApi.getKlines(symbol, interval, LOAD_MORE_KLINES, endTime);
       
       // 忽略过期响应
       if (requestId !== loadMoreRequestIdRef.current) return 0;
@@ -115,7 +117,7 @@ export function useKlineData() {
         return trimKlines([...newCandles, ...prev]);
       });
       
-      if (olderCandles.length < 200) {
+      if (olderCandles.length < LOAD_MORE_KLINES) {
         setHasMore(false);
       }
 
@@ -240,4 +242,3 @@ export function useKlineData() {
     hasMore,
   };
 }
-

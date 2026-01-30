@@ -34,6 +34,7 @@ export function useChartInstance({
   showEMA = false,
 }: UseChartInstanceOptions) {
   const symbolConfig = useAtomValue(symbolConfigAtom);
+  const autoScrollRef = useRef(true);
 
   // 1. 图表核心：创建实例和系列
   const { chart, series } = useChartCore({ container });
@@ -42,7 +43,7 @@ export function useChartInstance({
   const { dataLength, volumeMap, maMap, emaMap } = useChartData({
     chart,
     series,
-    autoScroll: useRef(true), // 临时 ref，由 useChartScroll 管理
+    autoScroll: autoScrollRef,
   });
 
   // 3. 滚动翻页：边界检测、加载更多
@@ -50,6 +51,7 @@ export function useChartInstance({
     chart,
     dataLength,
     onLoadMore,
+    autoScroll: autoScrollRef,
   });
 
   // 4. 十字线：事件处理、价格显示

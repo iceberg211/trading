@@ -24,6 +24,8 @@ import {
 } from '../utils/chartTransformers';
 import type { ChartSeriesRefs } from './useChartCore';
 
+const DEFAULT_VISIBLE_BARS = 120;
+
 interface UseChartDataOptions {
   chart: MutableRefObject<IChartApi | null>;
   series: MutableRefObject<ChartSeriesRefs>;
@@ -91,19 +93,21 @@ export function useChartData({
       lineSeries.setData(klineData.map(toLinePoint));
       volumeSeries.setData(klineData.map((c) => toVolumeData(c, CHART_COLORS.upColor, CHART_COLORS.downColor)));
 
-      // 调整视图 - 只在首次加载时 fitContent
-      if (isFirstLoad) {
-        chartInstance.timeScale().fitContent();
-        autoScroll.current = true;
-      } else if (hasPrependedData && prevRange) {
+      // 调整视图
+      if (hasPrependedData && prevRange) {
         // 加载更多历史数据时，保持当前视图位置
         const addedBars = klineData.length - prevLength;
         chartInstance.timeScale().setVisibleLogicalRange({
           from: prevRange.from + addedBars,
           to: prevRange.to + addedBars,
         });
+      } else {
+        // 初次加载/切换周期后，展示最近固定条数，避免视图被过度拉伸
+        const to = klineData.length - 1;
+        const from = to - DEFAULT_VISIBLE_BARS + 1;
+        chartInstance.timeScale().setVisibleLogicalRange({ from, to });
+        autoScroll.current = true;
       }
-      // 其他情况（如切换周期导致的重置）不调用 fitContent，保持用户当前视图
     } else {
       // 增量更新
       const lastCandle = klineData[klineData.length - 1];

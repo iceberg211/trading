@@ -15,14 +15,17 @@ interface UseChartScrollOptions {
   chart: MutableRefObject<IChartApi | null>;
   dataLength: MutableRefObject<number>;
   onLoadMore?: () => Promise<number>;
+  autoScroll?: MutableRefObject<boolean>;
 }
 
 export function useChartScroll({
   chart,
   dataLength,
   onLoadMore,
+  autoScroll,
 }: UseChartScrollOptions) {
-  const autoScrollRef = useRef(true);
+  const internalAutoScrollRef = useRef(true);
+  const autoScrollRef = autoScroll ?? internalAutoScrollRef;
   const isLoadingMoreRef = useRef(false);
   const lastLoadMoreTimeRef = useRef(0);
   const loadMoreRef = useRef(onLoadMore);
@@ -43,8 +46,9 @@ export function useChartScroll({
       if (dataLength.current === 0) return;
 
       const lastIndex = dataLength.current - 1;
+      const isBeyondRightEdge = range.to > lastIndex + 0.5;
       const isAtRightEdge = range.to >= lastIndex - CHART_THRESHOLDS.autoScrollThreshold;
-      autoScrollRef.current = isAtRightEdge;
+      autoScrollRef.current = !isBeyondRightEdge && isAtRightEdge;
 
       // 左边界检测
       const loadMore = loadMoreRef.current;
