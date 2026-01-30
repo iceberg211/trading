@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { useRef } from 'react';
-import { symbolAtom } from '@/features/symbol/atoms/symbolAtom';
+import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
 import { tickerAtom } from '@/features/ticker/atoms/tickerAtom';
 import { useTicker } from '@/features/ticker/hooks/useTicker';
 import { SymbolSelector } from './SymbolSelector';
@@ -15,7 +15,7 @@ const formatLargeNumber = (value: string | number): string => {
   return num.toFixed(2);
 };
 
-// 格式化价格
+// 格式化价格（使用动态精度）
 const formatPrice = (value: string, decimals = 2): string => {
   const num = parseFloat(value);
   if (isNaN(num)) return '--';
@@ -23,7 +23,8 @@ const formatPrice = (value: string, decimals = 2): string => {
 };
 
 export function TickerBar() {
-  const symbol = useAtomValue(symbolAtom);
+  // 使用 symbolConfigAtom 获取完整配置
+  const symbolConfig = useAtomValue(symbolConfigAtom);
   const ticker = useAtomValue(tickerAtom);
   const prevPriceRef = useRef<string>('');
   
@@ -36,8 +37,8 @@ export function TickerBar() {
     : 0;
   const isPositive = priceChangePercent >= 0;
 
-  // 获取交易对的 base 币种（用于显示成交量单位）
-  const baseAsset = symbol.replace('USDT', '');
+  // 从 symbolConfigAtom 获取动态配置
+  const { baseAsset, quoteAsset, pricePrecision } = symbolConfig;
   
   // 更新前一价格引用
   if (lastPrice && lastPrice !== prevPriceRef.current) {
@@ -70,12 +71,12 @@ export function TickerBar() {
 
             <PriceFlash 
               price={lastPrice} 
-              precision={2}
+              precision={pricePrecision}
               className={isPositive ? 'text-up' : 'text-down'}
             />
           </div>
           <div className="text-[10px] text-text-tertiary">
-            ≈ ${lastPrice ? formatPrice(lastPrice) : '--'}
+            ≈ ${lastPrice ? formatPrice(lastPrice, pricePrecision) : '--'}
           </div>
         </div>
 
@@ -91,13 +92,13 @@ export function TickerBar() {
           <div className="hidden sm:block">
             <span className="text-text-tertiary block text-[10px]">24h High</span>
             <span className="text-text-primary font-mono">
-              {ticker?.highPrice ? formatPrice(ticker.highPrice) : '--'}
+              {ticker?.highPrice ? formatPrice(ticker.highPrice, pricePrecision) : '--'}
             </span>
           </div>
           <div className="hidden sm:block">
             <span className="text-text-tertiary block text-[10px]">24h Low</span>
             <span className="text-text-primary font-mono">
-              {ticker?.lowPrice ? formatPrice(ticker.lowPrice) : '--'}
+              {ticker?.lowPrice ? formatPrice(ticker.lowPrice, pricePrecision) : '--'}
             </span>
           </div>
           <div className="hidden md:block">
@@ -107,7 +108,7 @@ export function TickerBar() {
             </span>
           </div>
           <div className="hidden lg:block">
-            <span className="text-text-tertiary block text-[10px]">24h Vol(USDT)</span>
+            <span className="text-text-tertiary block text-[10px]">24h Vol({quoteAsset})</span>
             <span className="text-text-primary font-mono">
               {ticker?.quoteVolume ? formatLargeNumber(ticker.quoteVolume) : '--'}
             </span>

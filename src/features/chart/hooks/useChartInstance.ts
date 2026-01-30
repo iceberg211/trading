@@ -3,6 +3,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { createChart, IChartApi, ISeriesApi, type LogicalRange, type MouseEventParams } from 'lightweight-charts';
 import { klineDataAtom } from '../atoms/klineAtom';
 import { crosshairDataAtom } from '../atoms/crosshairAtom';
+import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
 import type { Candle } from '@/types/binance';
 
 interface UseChartInstanceOptions {
@@ -16,17 +17,24 @@ interface UseChartInstanceOptions {
 export function useChartInstance({ container, onLoadMore }: UseChartInstanceOptions) {
   const klineData = useAtomValue(klineDataAtom);
   const setCrosshairData = useSetAtom(crosshairDataAtom);
+  const symbolConfig = useAtomValue(symbolConfigAtom);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const lastDataLengthRef = useRef(0);
   const lastDataStartTimeRef = useRef<number | null>(null);
   const autoScrollRef = useRef(true);
-  // 存储 K 线数据用于十字线查询
-  const klineDataRef = useRef<Candle[]>([]);
+  // 缓存成交量（用于十字线查询）
+  const klineVolumeMapRef = useRef<Map<number, number>>(new Map());
   // 左侧翻页状态
   const isLoadingMoreRef = useRef(false);
   const lastLoadMoreTimeRef = useRef(0);
+  const loadMoreRef = useRef<UseChartInstanceOptions['onLoadMore']>();
 
+  // 保持 onLoadMore 引用最新，避免闭包过期
+  useEffect(() => {
+    loadMoreRef.current = onLoadMore;
+  }, [onLoadMore]);
 
   /**
    * 初始化图表
@@ -86,6 +94,20 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
     });
 
     candleSeriesRef.current = candleSeries;
+    
+    // 成交量柱状图
+    const volumeSeries = chart.addHistogramSeries({
+      priceScaleId: 'volume',
+      priceFormat: { type: 'volume' },
+      color: '#0ECB81',
+    });
+    
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+      borderVisible: false,
+    });
+
+    volumeSeriesRef.current = volumeSeries;
 
     const handleVisibleRangeChange = (range: LogicalRange | null) => {
       if (!range) return;
@@ -101,7 +123,8 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
       autoScrollRef.current = isAtRightEdge;
 
       // 左边界检测：当用户滚动到左边界附近时加载更多历史数据
-      if (onLoadMore && !isLoadingMoreRef.current) {
+      const loadMore = loadMoreRef.current;
+      if (loadMore && !isLoadingMoreRef.current) {
         const isAtLeftEdge = range.from <= 10; // 当左边界在前10条数据内时触发
         const now = Date.now();
         const timeSinceLastLoad = now - lastLoadMoreTimeRef.current;
@@ -112,7 +135,7 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
           isLoadingMoreRef.current = true;
           lastLoadMoreTimeRef.current = now;
 
-          onLoadMore().finally(() => {
+          loadMore().finally(() => {
             isLoadingMoreRef.current = false;
           });
         }
@@ -139,7 +162,7 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
 
       // 查找对应的成交量
       const time = typeof param.time === 'number' ? param.time : 0;
-      const matchingCandle = klineDataRef.current.find(c => c.time === time);
+      const volume = klineVolumeMapRef.current.get(time);
 
       setCrosshairData({
         time,
@@ -147,33 +170,48 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
         high: ohlc.high,
         low: ohlc.low,
         close: ohlc.close,
-        volume: matchingCandle ? parseFloat(matchingCandle.volume) : undefined,
+        volume: volume !== undefined ? volume : undefined,
         changePercent,
       });
     };
 
     chart.subscribeCrosshairMove(handleCrosshairMove);
 
-    // 响应式调整
+    // 响应式调整（优先使用 ResizeObserver）
+    let resizeObserver: ResizeObserver | null = null;
     const handleResize = () => {
-
       chart.applyOptions({
         width: container.clientWidth,
         height: container.clientHeight,
       });
     };
-
-    window.addEventListener('resize', handleResize);
+    
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        const { width, height } = entry.contentRect;
+        chart.applyOptions({ width, height });
+      });
+      resizeObserver.observe(container);
+    } else {
+      window.addEventListener('resize', handleResize);
+    }
 
     // 清理
     return () => {
-      window.removeEventListener('resize', handleResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      } else {
+        window.removeEventListener('resize', handleResize);
+      }
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
       setCrosshairData(null);
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
     };
 
   }, [container, setCrosshairData]);
@@ -185,6 +223,12 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
     low: parseFloat(candle.low),
     close: parseFloat(candle.close),
   });
+  
+  const toVolumeData = (candle: Candle) => ({
+    time: candle.time as any,
+    value: parseFloat(candle.volume),
+    color: parseFloat(candle.close) >= parseFloat(candle.open) ? '#0ECB81' : '#F6465D',
+  });
 
   /**
    * 更新图表数据
@@ -192,8 +236,9 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
   useEffect(() => {
     const chart = chartRef.current;
     const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
 
-    if (!chart || !candleSeries) return;
+    if (!chart || !candleSeries || !volumeSeries) return;
 
     if (klineData.length === 0) {
       lastDataLengthRef.current = 0;
@@ -206,33 +251,39 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
       lastDataStartTimeRef.current === null ||
       klineData.length < lastDataLengthRef.current ||
       currentStartTime !== lastDataStartTimeRef.current;
+    
+    const hasPrependedData = 
+      lastDataStartTimeRef.current !== null &&
+      currentStartTime !== lastDataStartTimeRef.current &&
+      klineData.length > lastDataLengthRef.current;
 
     if (shouldReset) {
+      const prevRange = chart.timeScale().getVisibleLogicalRange();
       candleSeries.setData(klineData.map(toChartCandle));
+      volumeSeries.setData(klineData.map(toVolumeData));
       
       // 只在首次加载时自动适配内容范围
       // 后续更新不强制改变用户的滚动位置
       if (lastDataStartTimeRef.current === null) {
         chart.timeScale().fitContent();
         autoScrollRef.current = true;
+      } else if (hasPrependedData && prevRange) {
+        // 左侧加载更多：保持当前视图范围
+        const addedBars = klineData.length - lastDataLengthRef.current;
+        chart.timeScale().setVisibleLogicalRange({
+          from: prevRange.from + addedBars,
+          to: prevRange.to + addedBars,
+        });
       } else {
         // 切换交易对时：适配新数据范围，但保留自动滚动状态
         chart.timeScale().fitContent();
         // 让用户决定是否跟随最新数据
       }
-      
-      // 显式触发价格轴的自动缩放
-      candleSeries.applyOptions({
-        priceFormat: {
-          type: 'price',
-          precision: 2,
-          minMove: 0.01,
-        },
-      });
     } else {
       // 增量更新：只更新最后一根 K 线
       const lastCandle = klineData[klineData.length - 1];
       candleSeries.update(toChartCandle(lastCandle));
+      volumeSeries.update(toVolumeData(lastCandle));
 
       // 只有当用户在最右侧时才自动滚动跟随
       if (autoScrollRef.current) {
@@ -242,9 +293,35 @@ export function useChartInstance({ container, onLoadMore }: UseChartInstanceOpti
 
     lastDataLengthRef.current = klineData.length;
     lastDataStartTimeRef.current = currentStartTime;
-    // 同步 K 线数据供十字线查询成交量
-    klineDataRef.current = klineData;
+    
+    // 同步成交量数据供十字线查询
+    const volumeMap = new Map<number, number>();
+    for (const candle of klineData) {
+      volumeMap.set(candle.time, parseFloat(candle.volume));
+    }
+    klineVolumeMapRef.current = volumeMap;
   }, [klineData]);
+  
+  // 根据交易对精度配置价格轴
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    if (!candleSeries) return;
+    
+    const precision = symbolConfig?.pricePrecision ?? 2;
+    const tickSize = symbolConfig?.tickSize ?? '0.01';
+    const minMove = Number(tickSize);
+    const safeMinMove = Number.isFinite(minMove) && minMove > 0
+      ? minMove
+      : Math.pow(10, -precision);
+
+    candleSeries.applyOptions({
+      priceFormat: {
+        type: 'price',
+        precision,
+        minMove: safeMinMove,
+      },
+    });
+  }, [symbolConfig?.pricePrecision, symbolConfig?.tickSize]);
 
 
   return {

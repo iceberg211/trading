@@ -70,7 +70,7 @@ export function SymbolSelector() {
               >
                 <div className="flex flex-col">
                   <span className="font-medium">{item.baseAsset}/{item.quoteAsset}</span>
-                  <span className="text-[10px] text-text-tertiary">Perpetual</span>
+                  <span className="text-[10px] text-text-tertiary">Spot</span>
                 </div>
                 {currentSymbol.symbol === item.symbol && (
                   <div className="w-1.5 h-1.5 rounded-full bg-accent" />

@@ -1,5 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { crosshairDataAtom } from '../atoms/crosshairAtom';
+import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
+import { formatPrice as formatPriceUtil, formatQuantity } from '@/utils/decimal';
 
 /**
  * OHLCV 悬浮信息面板
@@ -7,9 +9,15 @@ import { crosshairDataAtom } from '../atoms/crosshairAtom';
  */
 export function OHLCVPanel() {
   const data = useAtomValue(crosshairDataAtom);
+  const symbolConfig = useAtomValue(symbolConfigAtom);
+  const pricePrecision = symbolConfig?.pricePrecision;
+  const qtyPrecision = symbolConfig?.quantityPrecision ?? 4;
 
   // 格式化数字
   const formatPrice = (value: number) => {
+    if (pricePrecision !== undefined) {
+      return formatPriceUtil(value, pricePrecision);
+    }
     if (value >= 1000) return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (value >= 1) return value.toFixed(4);
     return value.toFixed(8);
@@ -28,6 +36,13 @@ export function OHLCVPanel() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+  
+  const formatVolume = (value: number) => {
+    if (symbolConfig) {
+      return formatQuantity(value, Math.min(qtyPrecision, 6));
+    }
+    return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
   };
 
   if (!data) {
@@ -84,7 +99,7 @@ export function OHLCVPanel() {
         <div className="flex items-center gap-1">
           <span className="text-text-tertiary">量</span>
           <span className="font-mono text-text-secondary">
-            {data.volume.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+            {formatVolume(data.volume)}
           </span>
         </div>
       )}

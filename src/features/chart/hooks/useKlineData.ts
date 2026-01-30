@@ -12,6 +12,13 @@ import { binanceApi } from '@/services/api/binance';
 import { marketDataHub } from '@/core/gateway';
 import type { BinanceKlineWsMessage, Candle } from '@/types/binance';
 
+const MAX_KLINES = 3000;
+
+function trimKlines(data: Candle[]): Candle[] {
+  if (data.length <= MAX_KLINES) return data;
+  return data.slice(-MAX_KLINES);
+}
+
 /**
  * K 线数据管理 Hook
  * 使用 MarketDataHub 统一订阅层
@@ -26,21 +33,42 @@ export function useKlineData() {
 
   const updateBufferRef = useRef<Candle | null>(null);
   const rafIdRef = useRef<number | null>(null);
+  const latestSymbolRef = useRef(symbol);
+  const latestIntervalRef = useRef(interval);
+  const loadRequestIdRef = useRef(0);
+  const loadMoreRequestIdRef = useRef(0);
+  
+  useEffect(() => {
+    latestSymbolRef.current = symbol;
+    latestIntervalRef.current = interval;
+    // 标记旧请求失效，避免切换交易对后覆盖新数据
+    loadRequestIdRef.current += 1;
+    loadMoreRequestIdRef.current += 1;
+  }, [symbol, interval]);
 
   /**
    * 加载历史 K 线数据
    */
   const loadHistoricalData = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     setError(null);
 
     try {
       const candles = await binanceApi.getKlines(symbol, interval, 500);
-      setKlineData(candles);
+      
+      // 忽略过期响应
+      if (requestId !== loadRequestIdRef.current) return;
+      if (latestSymbolRef.current !== symbol || latestIntervalRef.current !== interval) return;
+      
+      setKlineData(trimKlines(candles));
     } catch (err) {
+      if (requestId !== loadRequestIdRef.current) return;
       setError(err instanceof Error ? err.message : '加载数据失败');
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [symbol, interval, setKlineData, setLoading, setError]);
 
@@ -54,9 +82,14 @@ export function useKlineData() {
 
     const firstCandle = klineData[0];
     const endTime = firstCandle.time * 1000 - 1; // 毫秒，减1避免重复
+    const requestId = ++loadMoreRequestIdRef.current;
 
     try {
       const olderCandles = await binanceApi.getKlines(symbol, interval, 200, endTime);
+      
+      // 忽略过期响应
+      if (requestId !== loadMoreRequestIdRef.current) return 0;
+      if (latestSymbolRef.current !== symbol || latestIntervalRef.current !== interval) return 0;
       
       if (olderCandles.length === 0) {
         console.log('[useKlineData] No more historical data available');
@@ -71,7 +104,7 @@ export function useKlineData() {
         if (newCandles.length === 0) return prev;
         
         console.log(`[useKlineData] Loaded ${newCandles.length} more candles`);
-        return [...newCandles, ...prev];
+        return trimKlines([...newCandles, ...prev]);
       });
 
       return olderCandles.length;
@@ -92,11 +125,11 @@ export function useKlineData() {
 
       // 同一根 K 线：更新最后一根
       if (lastCandle.time === newCandle.time) {
-        return [...prev.slice(0, -1), newCandle];
+        return trimKlines([...prev.slice(0, -1), newCandle]);
       }
 
       // 新的 K 线：追加
-      return [...prev, newCandle];
+      return trimKlines([...prev, newCandle]);
     });
   }, [setKlineData]);
 
@@ -124,20 +157,27 @@ export function useKlineData() {
     // MarketDataHub 已经解包了 Combined Stream
     const klineMsg = data as BinanceKlineWsMessage;
 
-    if (klineMsg.e === 'kline') {
-      const k = klineMsg.k;
-      const candle: Candle = {
-        time: Math.floor(k.t / 1000),
-        open: k.o,
-        high: k.h,
-        low: k.l,
-        close: k.c,
-        volume: k.v,
-      };
+    if (klineMsg.e !== 'kline') return;
+    
+    const k = klineMsg.k;
+    const msgSymbol = klineMsg.s || k.s;
+    const msgInterval = k.i;
+    
+    // 过滤非当前交易对/周期的数据
+    if (msgSymbol && msgSymbol !== symbol) return;
+    if (msgInterval && msgInterval !== interval) return;
 
-      scheduleUpdate(candle);
-    }
-  }, [scheduleUpdate]);
+    const candle: Candle = {
+      time: Math.floor(k.t / 1000),
+      open: k.o,
+      high: k.h,
+      low: k.l,
+      close: k.c,
+      volume: k.v,
+    };
+
+    scheduleUpdate(candle);
+  }, [scheduleUpdate, symbol, interval]);
 
   /**
    * 初始化 WebSocket 订阅

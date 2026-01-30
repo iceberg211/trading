@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { useKlineData } from '../hooks/useKlineData';
 import { useChartInstance } from '../hooks/useChartInstance';
 import { ChartToolbar } from './ChartToolbar';
@@ -6,9 +6,12 @@ import { OHLCVPanel } from './OHLCVPanel';
 
 
 export function ChartContainer() {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const { loading, error, wsStatus, loadMore } = useKlineData();
-  useChartInstance({ container: chartContainerRef.current, onLoadMore: loadMore });
+  useChartInstance({ container: containerEl, onLoadMore: loadMore });
+  const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainerEl(node);
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
@@ -61,7 +64,7 @@ export function ChartContainer() {
       </div>
 
       {/* 图表 */}
-      <div ref={chartContainerRef} className="flex-1 min-h-0" />
+      <div ref={setContainerRef} className="flex-1 min-h-0" />
     </div>
   );
 }
