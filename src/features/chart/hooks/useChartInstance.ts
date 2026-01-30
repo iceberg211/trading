@@ -82,7 +82,7 @@ export function useChartInstance({
         borderColor: '#2B3139',
       },
       crosshair: {
-        mode: 1, // CrosshairMode.Normal - 显示十字线
+        mode: 0, // CrosshairMode.Normal - 十字线跟随鼠标位置（不吸附到 K 线价格）
         vertLine: {
           color: '#5E6673',
           width: 1,
