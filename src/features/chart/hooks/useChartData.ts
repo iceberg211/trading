@@ -68,6 +68,7 @@ export function useChartData({
       return;
     }
 
+
     const currentStartTime = klineData[0].time;
     const prevLength = dataLengthRef.current;
     

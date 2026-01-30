@@ -44,8 +44,8 @@ export function ChartContainer() {
        </div>
 
 
-      {/* OHLCV 悬浮信息 */}
-      <div className="px-3 py-1.5 bg-bg-panel border-b border-line-dark min-h-[28px]">
+      {/* OHLCV 悬浮信息 - 固定高度避免图表抖动 */}
+      <div className="px-3 py-1.5 bg-bg-panel border-b border-line-dark h-[28px] overflow-hidden">
         <OHLCVPanel />
       </div>
 

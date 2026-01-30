@@ -3,6 +3,24 @@ import { useAtomValue } from 'jotai';
 import { orderBookAtom } from '../atoms/orderBookAtom';
 import Decimal from 'decimal.js';
 
+// 颜色常量
+const DEPTH_COLORS = {
+  bid: {
+    fill: 'rgba(14, 203, 129, 0.4)',
+    fillEnd: 'rgba(14, 203, 129, 0.05)',
+    stroke: '#0ECB81',
+  },
+  ask: {
+    fill: 'rgba(246, 70, 93, 0.4)',
+    fillEnd: 'rgba(246, 70, 93, 0.05)',
+    stroke: '#F6465D',
+  },
+  midLine: '#848E9C',
+} as const;
+
+// 图表内边距
+const CHART_PADDING = { top: 10, right: 10, bottom: 20, left: 10 };
+
 interface DepthPoint {
   price: number;
   cumulativeQty: number;
@@ -15,6 +33,7 @@ interface TooltipData {
   total: string;
   type: 'bid' | 'ask';
 }
+
 
 /**
  * 深度图组件 - Binance 风格
@@ -97,84 +116,86 @@ export const DepthChart = memo(function DepthChart() {
     // 清除画布
     ctx.clearRect(0, 0, width, height);
 
-    const padding = { top: 10, right: 10, bottom: 20, left: 10 };
-    const chartWidth = width - padding.left - padding.right;
-    const chartHeight = height - padding.top - padding.bottom;
+    const chartWidth = width - CHART_PADDING.left - CHART_PADDING.right;
+    const chartHeight = height - CHART_PADDING.top - CHART_PADDING.bottom;
 
     // 价格到 X 坐标的映射
     const priceToX = (price: number) => {
       const range = maxPrice - minPrice;
-      if (range === 0) return padding.left + chartWidth / 2;
-      return padding.left + ((price - minPrice) / range) * chartWidth;
+      if (range === 0) return CHART_PADDING.left + chartWidth / 2;
+      return CHART_PADDING.left + ((price - minPrice) / range) * chartWidth;
     };
 
     // 数量到 Y 坐标的映射
     const qtyToY = (qty: number) => {
-      return padding.top + chartHeight - (qty / maxQty) * chartHeight;
+      return CHART_PADDING.top + chartHeight - (qty / maxQty) * chartHeight;
     };
+
 
     // 绘制买单区域（绿色）
     if (bidDepth.length > 0) {
       ctx.beginPath();
-      ctx.moveTo(priceToX(midPrice), padding.top + chartHeight);
+      ctx.moveTo(priceToX(midPrice), CHART_PADDING.top + chartHeight);
       
       for (let i = 0; i < bidDepth.length; i++) {
         const point = bidDepth[i];
         ctx.lineTo(priceToX(point.price), qtyToY(point.cumulativeQty));
       }
       
-      ctx.lineTo(priceToX(bidDepth[bidDepth.length - 1].price), padding.top + chartHeight);
+      ctx.lineTo(priceToX(bidDepth[bidDepth.length - 1].price), CHART_PADDING.top + chartHeight);
       ctx.closePath();
       
       // 填充渐变
-      const bidGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
-      bidGradient.addColorStop(0, 'rgba(14, 203, 129, 0.4)');
-      bidGradient.addColorStop(1, 'rgba(14, 203, 129, 0.05)');
+      const bidGradient = ctx.createLinearGradient(0, CHART_PADDING.top, 0, CHART_PADDING.top + chartHeight);
+      bidGradient.addColorStop(0, DEPTH_COLORS.bid.fill);
+      bidGradient.addColorStop(1, DEPTH_COLORS.bid.fillEnd);
       ctx.fillStyle = bidGradient;
       ctx.fill();
 
       // 边框线
-      ctx.strokeStyle = '#0ECB81';
+      ctx.strokeStyle = DEPTH_COLORS.bid.stroke;
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
 
+
     // 绘制卖单区域（红色）
     if (askDepth.length > 0) {
       ctx.beginPath();
-      ctx.moveTo(priceToX(midPrice), padding.top + chartHeight);
+      ctx.moveTo(priceToX(midPrice), CHART_PADDING.top + chartHeight);
       
       for (let i = 0; i < askDepth.length; i++) {
         const point = askDepth[i];
         ctx.lineTo(priceToX(point.price), qtyToY(point.cumulativeQty));
       }
       
-      ctx.lineTo(priceToX(askDepth[askDepth.length - 1].price), padding.top + chartHeight);
+      ctx.lineTo(priceToX(askDepth[askDepth.length - 1].price), CHART_PADDING.top + chartHeight);
       ctx.closePath();
       
       // 填充渐变
-      const askGradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
-      askGradient.addColorStop(0, 'rgba(246, 70, 93, 0.4)');
-      askGradient.addColorStop(1, 'rgba(246, 70, 93, 0.05)');
+      const askGradient = ctx.createLinearGradient(0, CHART_PADDING.top, 0, CHART_PADDING.top + chartHeight);
+      askGradient.addColorStop(0, DEPTH_COLORS.ask.fill);
+      askGradient.addColorStop(1, DEPTH_COLORS.ask.fillEnd);
       ctx.fillStyle = askGradient;
       ctx.fill();
 
       // 边框线
-      ctx.strokeStyle = '#F6465D';
+      ctx.strokeStyle = DEPTH_COLORS.ask.stroke;
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
 
     // 绘制中间价格线
     ctx.beginPath();
-    ctx.strokeStyle = '#848E9C';
+    ctx.strokeStyle = DEPTH_COLORS.midLine;
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     const midX = priceToX(midPrice);
-    ctx.moveTo(midX, padding.top);
-    ctx.lineTo(midX, padding.top + chartHeight);
+    ctx.moveTo(midX, CHART_PADDING.top);
+    ctx.lineTo(midX, CHART_PADDING.top + chartHeight);
     ctx.stroke();
     ctx.setLineDash([]);
+
 
   }, [dimensions, bidDepth, askDepth, maxQty, minPrice, maxPrice, midPrice]);
 
@@ -185,13 +206,12 @@ export const DepthChart = memo(function DepthChart() {
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
 
-    const padding = { top: 10, right: 10, bottom: 20, left: 10 };
-    const chartWidth = dimensions.width - padding.left - padding.right;
+    const chartWidth = dimensions.width - CHART_PADDING.left - CHART_PADDING.right;
 
     // X 坐标转价格
-    const price = minPrice + ((x - padding.left) / chartWidth) * (maxPrice - minPrice);
+    const price = minPrice + ((x - CHART_PADDING.left) / chartWidth) * (maxPrice - minPrice);
+
     
     // 判断是买单还是卖单区域
     const isBidSide = price < midPrice;

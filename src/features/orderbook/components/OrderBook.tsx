@@ -1,8 +1,11 @@
-import { useMemo, useState, useCallback, useLayoutEffect, useRef, memo, CSSProperties } from 'react';
+import { useMemo, useState, useLayoutEffect, useRef, memo, CSSProperties } from 'react';
 import { FixedSizeList as List } from 'react-window';
+import { useAtomValue } from 'jotai';
 import { useOrderBook } from '../hooks/useOrderBook';
 import { DepthChart } from './DepthChart';
+import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
 import Decimal from 'decimal.js';
+
 
 type ViewMode = 'book' | 'depth';
 
@@ -58,10 +61,17 @@ const OrderRow = memo(function OrderRow({
 
 export function OrderBook() {
   const { orderBook, loading, error, syncStatus } = useOrderBook();
+  const symbolConfig = useAtomValue(symbolConfigAtom);
   const [viewMode, setViewMode] = useState<ViewMode>('book');
   const contentRef = useRef<HTMLDivElement>(null);
   const spreadRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(160);
+
+  // 从 symbolConfig 提取货币名称
+  const quoteCurrency = symbolConfig?.quoteAsset || 'USDT';
+  const baseCurrency = symbolConfig?.baseAsset || 'BTC';
+  const tickSize = symbolConfig?.tickSize || '0.01';
+
 
   // 处理买单数据
   const bids = useMemo(() => {
@@ -88,11 +98,6 @@ export function OrderBook() {
     return Math.max(maxBid, maxAsk);
   }, [bids, asks]);
 
-  // 点击价格填入交易表单（预留功能）
-  const handlePriceClick = useCallback((price: string) => {
-    console.log('Price clicked:', price);
-    // TODO: 联动交易表单
-  }, []);
 
   // 根据内容区域高度动态计算列表高度，填满剩余空间
   useLayoutEffect(() => {
@@ -158,7 +163,8 @@ export function OrderBook() {
           {syncStatus === 'gap_detected' && (
             <span className="text-[10px] text-down">Reconnecting...</span>
           )}
-          <span className="text-xs text-text-tertiary font-mono">0.01</span>
+          <span className="text-xs text-text-tertiary font-mono">{tickSize}</span>
+
         </div>
       </div>
 
@@ -174,9 +180,10 @@ export function OrderBook() {
         <>
           {/* Column Headers */}
           <div className="grid grid-cols-3 gap-2 px-3 py-1 text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
-            <span className="text-left">Price(USDT)</span>
-            <span className="text-right">Amount(BTC)</span>
+            <span className="text-left">Price({quoteCurrency})</span>
+            <span className="text-right">Amount({baseCurrency})</span>
             <span className="text-right">Total</span>
+
           </div>
 
           {/* Content */}

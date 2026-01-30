@@ -240,11 +240,44 @@ export class MarketDataHub {
         return;
       }
       
-      // 提取 stream 和 data
-      const stream = parsed.stream as string;
-      const payload = parsed.data;
+      // Binance WebSocket 有两种消息格式:
+      // 1. 组合流格式 (使用 /stream 端点): { stream: "btcusdt@depth@100ms", data: {...} }
+      // 2. 单流格式 (使用 /ws 端点 + SUBSCRIBE): { e: "depthUpdate", s: "BTCUSDT", ... }
       
-      if (!stream || !payload) {
+      let stream: string;
+      let payload: any;
+      
+      if (parsed.stream && parsed.data) {
+        // 组合流格式
+        stream = parsed.stream;
+        payload = parsed.data;
+      } else if (parsed.e) {
+        // 单流格式：从事件类型推断 channel
+        // e="kline" -> kline, e="depthUpdate" -> depth, e="trade" -> trade, e="24hrTicker" -> ticker
+        const eventType = parsed.e as string;
+        const symbol = (parsed.s || '').toLowerCase();
+        
+        // 构建虚拟 stream 名称供路由使用
+        switch (eventType) {
+          case 'kline':
+            stream = `${symbol}@kline_${parsed.k?.i || '1m'}`;
+            break;
+          case 'depthUpdate':
+            stream = `${symbol}@depth@100ms`;
+            break;
+          case 'trade':
+            stream = `${symbol}@trade`;
+            break;
+          case '24hrTicker':
+            stream = `${symbol}@ticker`;
+            break;
+          default:
+            console.warn('[MarketDataHub] Unknown event type:', eventType);
+            return;
+        }
+        
+        payload = parsed;
+      } else {
         console.warn('[MarketDataHub] Invalid message format:', parsed);
         return;
       }
