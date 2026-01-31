@@ -16,10 +16,16 @@ interface ChartToolbarProps {
   showVolume: boolean;
   showMA: boolean;
   showEMA: boolean;
+  showBOLL: boolean;
+  activeDrawingTool: 'horizontal' | 'trendline' | null;
+  subchartType: 'MACD' | 'RSI' | null;
   onChangeChartType: (type: 'candles' | 'line') => void;
   onToggleVolume: () => void;
   onToggleMA: () => void;
   onToggleEMA: () => void;
+  onToggleBOLL: () => void;
+  onSelectDrawingTool: (tool: 'horizontal' | 'trendline' | null) => void;
+  onSelectSubchart: (type: 'MACD' | 'RSI' | null) => void;
   onResetScale: () => void;
   onGoToLatest: () => void;
 }
@@ -29,10 +35,16 @@ export function ChartToolbar({
   showVolume,
   showMA,
   showEMA,
+  showBOLL,
+  activeDrawingTool,
+  subchartType,
   onChangeChartType,
   onToggleVolume,
   onToggleMA,
   onToggleEMA,
+  onToggleBOLL,
+  onSelectDrawingTool,
+  onSelectSubchart,
   onResetScale,
   onGoToLatest,
 }: ChartToolbarProps) {
@@ -116,6 +128,70 @@ export function ChartToolbar({
           }`}
         >
           EMA
+        </button>
+        <button
+          onClick={onToggleBOLL}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            showBOLL
+              ? 'text-text-primary bg-bg-soft'
+              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+          }`}
+        >
+          BOLL
+        </button>
+      </div>
+      
+      <div className="h-4 w-px bg-line-dark" />
+      
+      {/* 画线工具 */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onSelectDrawingTool(activeDrawingTool === 'horizontal' ? null : 'horizontal')}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            activeDrawingTool === 'horizontal'
+              ? 'text-accent bg-accent/10'
+              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+          }`}
+          title="水平线"
+        >
+          ─
+        </button>
+        <button
+          onClick={() => onSelectDrawingTool(activeDrawingTool === 'trendline' ? null : 'trendline')}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            activeDrawingTool === 'trendline'
+              ? 'text-accent bg-accent/10'
+              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+          }`}
+          title="趋势线"
+        >
+          ╲
+        </button>
+      </div>
+      
+      <div className="h-4 w-px bg-line-dark" />
+      
+      {/* 副图指标 */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onSelectSubchart('MACD')}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            subchartType === 'MACD'
+              ? 'text-text-primary bg-bg-soft'
+              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+          }`}
+        >
+          MACD
+        </button>
+        <button
+          onClick={() => onSelectSubchart('RSI')}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            subchartType === 'RSI'
+              ? 'text-text-primary bg-bg-soft'
+              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+          }`}
+        >
+          RSI
         </button>
       </div>
       

@@ -28,7 +28,7 @@ export const symbolAtom = atom(
 // 可写 atom：用于切换交易对
 export const setSymbolAtom = atom(
   null,
-  (get, set, symbolString: string) => {
+  (_get, set, symbolString: string) => {
     // 优先从 ExchangeInfo 获取完整配置
     const config = exchangeInfo.getSymbol(symbolString);
     

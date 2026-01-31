@@ -26,6 +26,7 @@ import {
   buildVolumeMap,
   buildIndicatorMap,
 } from '../utils/chartTransformers';
+import { calculateBOLL } from '../indicators/algorithms/boll';
 import type { ChartSeriesRefs } from './useChartCore';
 
 const DEFAULT_VISIBLE_BARS = 120;
@@ -59,9 +60,9 @@ export function useChartData({
 
   useEffect(() => {
     const chartInstance = chart.current;
-    const { candleSeries, lineSeries, volumeSeries, maSeries, emaSeries } = series.current;
+    const { candleSeries, lineSeries, volumeSeries, maSeries, emaSeries, bollUpperSeries, bollMiddleSeries, bollLowerSeries } = series.current;
 
-    if (!chartInstance || !candleSeries || !lineSeries || !volumeSeries || !maSeries || !emaSeries) {
+    if (!chartInstance || !candleSeries || !lineSeries || !volumeSeries || !maSeries || !emaSeries || !bollUpperSeries || !bollMiddleSeries || !bollLowerSeries) {
       return;
     }
 
@@ -104,8 +105,17 @@ export function useChartData({
       // 全量更新指标
       const maData = calculateMA(klineData, INDICATOR_PERIODS.MA);
       const emaData = calculateEMA(klineData, INDICATOR_PERIODS.EMA);
+      const bollData = calculateBOLL(klineData, 20, 2);
+      
       maSeries.setData(maData);
       emaSeries.setData(emaData);
+      
+      // BOLL 数据
+      if (bollData.length > 0) {
+        bollUpperSeries.setData(bollData.map(d => ({ time: (d.time / 1000) as any, value: d.upper })));
+        bollMiddleSeries.setData(bollData.map(d => ({ time: (d.time / 1000) as any, value: d.middle })));
+        bollLowerSeries.setData(bollData.map(d => ({ time: (d.time / 1000) as any, value: d.lower })));
+      }
 
       // 更新缓存 Map
       volumeMapRef.current = buildVolumeMap(klineData);
@@ -157,7 +167,7 @@ export function useChartData({
       }
 
       // 更新 volume map
-      volumeMapRef.current.set(lastCandle.time, lastCandle.volume);
+      volumeMapRef.current.set(lastCandle.time, parseFloat(lastCandle.volume));
 
       // 只有在自动滚动模式下才滚动到最新
       // 用户拖动后 autoScroll 会被设为 false，此时不会自动滚动

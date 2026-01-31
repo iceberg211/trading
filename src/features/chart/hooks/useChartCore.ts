@@ -17,6 +17,9 @@ export interface ChartSeriesRefs {
   volumeSeries: ISeriesApi<'Histogram'> | null;
   maSeries: ISeriesApi<'Line'> | null;
   emaSeries: ISeriesApi<'Line'> | null;
+  bollUpperSeries: ISeriesApi<'Line'> | null;
+  bollMiddleSeries: ISeriesApi<'Line'> | null;
+  bollLowerSeries: ISeriesApi<'Line'> | null;
 }
 
 interface UseChartCoreOptions {
@@ -31,6 +34,9 @@ export function useChartCore({ container }: UseChartCoreOptions) {
     volumeSeries: null,
     maSeries: null,
     emaSeries: null,
+    bollUpperSeries: null,
+    bollMiddleSeries: null,
+    bollLowerSeries: null,
   });
 
   useEffect(() => {
@@ -68,6 +74,37 @@ export function useChartCore({ container }: UseChartCoreOptions) {
     // EMA 系列
     const emaSeries = chart.addLineSeries(SERIES_OPTIONS.ema);
     seriesRef.current.emaSeries = emaSeries;
+
+    // BOLL 系列 (上轨/中轨/下轨)
+    const bollUpperSeries = chart.addLineSeries({
+      color: '#F6465D',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      visible: false,
+    });
+    seriesRef.current.bollUpperSeries = bollUpperSeries;
+
+    const bollMiddleSeries = chart.addLineSeries({
+      color: '#F0B90B',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      visible: false,
+    });
+    seriesRef.current.bollMiddleSeries = bollMiddleSeries;
+
+    const bollLowerSeries = chart.addLineSeries({
+      color: '#0ECB81',
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      visible: false,
+    });
+    seriesRef.current.bollLowerSeries = bollLowerSeries;
 
     // 响应式调整
     let resizeObserver: ResizeObserver | null = null;
@@ -116,6 +153,9 @@ export function useChartCore({ container }: UseChartCoreOptions) {
         volumeSeries: null,
         maSeries: null,
         emaSeries: null,
+        bollUpperSeries: null,
+        bollMiddleSeries: null,
+        bollLowerSeries: null,
       };
     };
   }, [container]);

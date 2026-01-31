@@ -23,6 +23,7 @@ interface UseChartInstanceOptions {
   showVolume?: boolean;
   showMA?: boolean;
   showEMA?: boolean;
+  showBOLL?: boolean;
 }
 
 export function useChartInstance({
@@ -32,6 +33,7 @@ export function useChartInstance({
   showVolume = true,
   showMA = true,
   showEMA = false,
+  showBOLL = false,
 }: UseChartInstanceOptions) {
   const symbolConfig = useAtomValue(symbolConfigAtom);
   const autoScrollRef = useRef(true);
@@ -65,15 +67,18 @@ export function useChartInstance({
 
   // 5. 视图切换与指标显示
   useEffect(() => {
-    const { candleSeries, lineSeries, volumeSeries, maSeries, emaSeries } = series.current;
-    if (!candleSeries || !lineSeries || !volumeSeries || !maSeries || !emaSeries) return;
+    const { candleSeries, lineSeries, volumeSeries, maSeries, emaSeries, bollUpperSeries, bollMiddleSeries, bollLowerSeries } = series.current;
+    if (!candleSeries || !lineSeries || !volumeSeries || !maSeries || !emaSeries || !bollUpperSeries || !bollMiddleSeries || !bollLowerSeries) return;
 
     candleSeries.applyOptions({ visible: chartType === 'candles' });
     lineSeries.applyOptions({ visible: chartType === 'line' });
     volumeSeries.applyOptions({ visible: showVolume });
     maSeries.applyOptions({ visible: showMA });
     emaSeries.applyOptions({ visible: showEMA });
-  }, [chartType, showVolume, showMA, showEMA, series]);
+    bollUpperSeries.applyOptions({ visible: showBOLL });
+    bollMiddleSeries.applyOptions({ visible: showBOLL });
+    bollLowerSeries.applyOptions({ visible: showBOLL });
+  }, [chartType, showVolume, showMA, showEMA, showBOLL, series]);
 
   // 6. 根据交易对配置价格轴精度
   useEffect(() => {
@@ -112,7 +117,9 @@ export function useChartInstance({
 
   return {
     chart: chart.current,
+    chartRef: chart,
     candleSeries: series.current.candleSeries,
+    candleSeriesRef: { current: series.current.candleSeries },
     resetScale,
     goToLatest,
   };
