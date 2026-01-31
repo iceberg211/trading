@@ -10,6 +10,7 @@
 
 import { WebSocketManager } from '@/services/websocket/manager';
 import { SubscriptionManager } from './SubscriptionManager';
+import { runtimeConfig } from '@/core/config/runtime';
 import type { 
   DataChannel, 
   StreamConfig, 
@@ -30,7 +31,7 @@ export class MarketDataHub {
   
   private constructor() {
     // 使用单连接 + 动态订阅模式
-    const wsUrl = 'wss://stream.binance.com:9443/ws';
+    const wsUrl = runtimeConfig.wsBase;
     
     this.ws = new WebSocketManager({
       url: wsUrl,

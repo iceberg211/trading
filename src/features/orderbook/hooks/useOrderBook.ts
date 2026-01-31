@@ -10,6 +10,7 @@ import {
 } from '../atoms/orderBookAtom';
 import { binanceApi } from '@/services/api/binance';
 import { useTradingEngine } from '@/hooks/useTradingEngine';
+import { runtimeConfig } from '@/core/config/runtime';
 
 /**
  * 订单簿数据管理 Hook (Refactored for Web Worker)
@@ -93,7 +94,7 @@ export function useOrderBook() {
     });
 
     // 2. 连接 & 订阅
-    engine.connect('wss://stream.binance.com:9443/ws');
+    engine.connect(runtimeConfig.wsBase);
     engine.subscribe(symbol);
 
     // 3. 获取快照

@@ -3,6 +3,7 @@ import { FixedSizeList as List } from 'react-window';
 import { useAtomValue } from 'jotai';
 import { symbolAtom } from '@/features/chart/atoms/klineAtom';
 import { marketDataHub } from '@/core/gateway';
+import { runtimeConfig } from '@/core/config/runtime';
 import { formatPrice, formatQuantity } from '@/utils/decimal';
 import dayjs from 'dayjs';
 
@@ -71,7 +72,7 @@ export function RecentTrades() {
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
       
       const response = await fetch(
-        `https://api.binance.com/api/v3/trades?symbol=${sym}&limit=${MAX_TRADES}`,
+        `${runtimeConfig.apiBase}/v3/trades?symbol=${sym}&limit=${MAX_TRADES}`,
         { signal: controller.signal }
       );
       

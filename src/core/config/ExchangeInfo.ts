@@ -10,6 +10,7 @@ import type {
   CachedExchangeInfo,
   SymbolFilter 
 } from './types';
+import { runtimeConfig } from './runtime';
 
 // 缓存配置
 const CACHE_KEY = 'binance_exchange_info';
@@ -17,7 +18,7 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 小时
 const CACHE_VERSION = '1.0';
 
 // API 配置
-const API_URL = 'https://api.binance.com/api/v3/exchangeInfo';
+const API_URL = `${runtimeConfig.apiBase}/v3/exchangeInfo`;
 
 // 热门交易对列表（作为 fallback 和快速加载）
 export const POPULAR_SYMBOLS = [

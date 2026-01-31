@@ -1,9 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
+import { runtimeConfig } from '@/core/config/runtime';
 
 class ApiClient {
   private client: AxiosInstance;
 
-  constructor(baseURL: string = '/api') {
+  constructor(baseURL: string = runtimeConfig.apiBase) {
     this.client = axios.create({
       baseURL,
       timeout: 10000,
