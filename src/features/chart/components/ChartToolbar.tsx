@@ -17,14 +17,12 @@ interface ChartToolbarProps {
   showMA: boolean;
   showEMA: boolean;
   showBOLL: boolean;
-  activeDrawingTool: 'horizontal' | 'trendline' | 'fibonacci' | null;
   subchartType: 'MACD' | 'RSI' | null;
   onChangeChartType: (type: 'candles' | 'line') => void;
   onToggleVolume: () => void;
   onToggleMA: () => void;
   onToggleEMA: () => void;
   onToggleBOLL: () => void;
-  onSelectDrawingTool: (tool: 'horizontal' | 'trendline' | 'fibonacci' | null) => void;
   onSelectSubchart: (type: 'MACD' | 'RSI' | null) => void;
   onResetScale: () => void;
   onGoToLatest: () => void;
@@ -36,14 +34,12 @@ export function ChartToolbar({
   showMA,
   showEMA,
   showBOLL,
-  activeDrawingTool,
   subchartType,
   onChangeChartType,
   onToggleVolume,
   onToggleMA,
   onToggleEMA,
   onToggleBOLL,
-  onSelectDrawingTool,
   onSelectSubchart,
   onResetScale,
   onGoToLatest,
@@ -141,35 +137,7 @@ export function ChartToolbar({
         </button>
       </div>
       
-      <div className="h-4 w-px bg-line-dark" />
-      
-      {/* 画线工具 */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onSelectDrawingTool(activeDrawingTool === 'horizontal' ? null : 'horizontal')}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            activeDrawingTool === 'horizontal'
-              ? 'text-accent bg-accent/10'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-          title="水平线"
-        >
-          ─
-        </button>
-        <button
-          onClick={() => onSelectDrawingTool(activeDrawingTool === 'trendline' ? null : 'trendline')}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            activeDrawingTool === 'trendline'
-              ? 'text-accent bg-accent/10'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-          title="趋势线"
-        >
-          ╲
-        </button>
-      </div>
-      
-      <div className="h-4 w-px bg-line-dark" />
+
       
       {/* 副图指标 */}
       <div className="flex items-center gap-1">

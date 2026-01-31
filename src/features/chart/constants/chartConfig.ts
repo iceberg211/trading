@@ -101,10 +101,12 @@ export const SERIES_OPTIONS = {
     color: CHART_COLORS.maLine,
     lineWidth: 1 as const,
     lineStyle: 0,
+    crosshairMarkerVisible: false,
   },
   ema: {
     color: CHART_COLORS.emaLine,
     lineWidth: 1 as const,
     lineStyle: 0,
+    crosshairMarkerVisible: false,
   },
 } as const;

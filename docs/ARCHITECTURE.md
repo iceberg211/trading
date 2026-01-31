@@ -54,7 +54,7 @@ graph TB
         C[OrderBook]
         D[TradeForm]
         E[AssetPanel]
-        F[OrderPanel]
+        F[DrawingDropdown]
     end
 
     subgraph Features["功能层 Features"]
@@ -63,19 +63,19 @@ graph TB
         I[useTradeForm]
         J[useTicker]
         K[useOrders]
+        L[useDrawingTools]
     end
 
     subgraph Domain["领域层 Domain"]
-        L[MatchingEngine]
-        M[OrderStateMachine]
-        N[OrderValidator]
+        M[MatchingEngine]
+        N[OrderStateMachine]
         O[balanceAtom]
     end
 
     subgraph Core["核心层 Core"]
         P[MarketDataHub]
         Q[ExchangeInfo]
-        R[WebSocketManager]
+        R[TradingEngineWorker]
     end
 
     subgraph External["外部服务"]
@@ -83,21 +83,23 @@ graph TB
         T[Binance WebSocket]
     end
 
-    A --> B & C & D & E & F
-    B --> G
+    A --> B & C & D & E
+    B --> F
+    B --> G & L
     C --> H
     D --> I
     E --> O
-    F --> K
 
-    G & H & J --> P
-    I --> L
-    K --> L
-    L --> M & N & O
+    G & J --> P
+    H --> R
+    I --> M
+    K --> M
+    L --> B
 
-    P --> R --> T
+    P --> T
+    R --> T
     Q --> S
-    L --> O
+    M --> N & O
 ```
 
 ### 2.2 目录结构
@@ -127,7 +129,7 @@ src/
 │       └── balanceAtom.ts
 │
 ├── features/                # 功能模块
-│   ├── chart/               # K 线图表
+│   ├── chart/               # K 线图表 (Core, Drawing, Indicators)
 │   ├── orderbook/           # 订单簿
 │   ├── ticker/              # 行情数据
 │   ├── trade/               # 交易表单
@@ -322,26 +324,53 @@ depositAtom          // 充值
 **结构**:
 ```
 features/chart/
-├── atoms/
-│   ├── klineAtom.ts      # K 线数据状态
-│   └── crosshairAtom.ts  # 十字线状态
-├── components/
+├── atoms/              # 状态管理 (kline, settings)
+├── components/         # UI 组件
 │   ├── ChartContainer.tsx
 │   ├── ChartToolbar.tsx
-│   └── OHLCVPanel.tsx
-└── hooks/
-    ├── useKlineData.ts     # 数据获取 + 实时更新
-    └── useChartInstance.ts # 图表实例管理
+│   ├── SubchartPanel.tsx
+│   └── DrawingDropdown.tsx
+├── constants/          # 配置常量 (Colors, Options)
+├── core/               # 图表核心
+│   └── TimeScaleSync.ts  # 时间轴同步
+├── drawing/            # [NEW] 画线模块
+│   ├── components/     # 交互组件
+│   ├── core/           # 核心逻辑 (Manager, Renderer)
+│   └── hooks/          # React 适配 Hooks
+├── indicators/         # [NEW] 指标模块
+│   └── core/           # 指标计算引擎
+└── hooks/              # 通用 Hooks
+    ├── useKlineData.ts
+    ├── useChartGroup.ts
+    └── useSubchartSlots.ts
 ```
 
-**数据流**:
-```
-Binance API ──(历史数据)──> useKlineData ──> klineAtom ──> useChartInstance ──> Chart
-                               ↑
-Binance WS ──(实时更新)────────┘
-```
+**核心子系统**:
 
-**左侧翻页**: 当用户滚动到图表左边界时，自动加载更早的历史数据。
+1.  **数据流系统**:
+    *   `useKlineData`: 负责历史数据加载、实时增量更新、WebSocket 数据流合并。
+    *   `useChartGroup`: 协调主图与副图的数据同步与渲染。
+
+2.  **画线系统 (Drawing System)**:
+    *   **架构模式**: 采用 Manager-Renderer 模式分离逻辑与渲染。
+    *   `DrawingManager`: 管理画线生命周期、事件监听、数据存储。
+    *   `DrawingRenderer`: 负责调用 Lightweight Charts API 进行图形绘制。
+    *   `useDrawingTools`: 提供 React 层面的交互接口（工具选择、点击处理）。
+
+3.  **多图表同步系统 (Multi-Chart Sync)**:
+    *   `TimeScaleSync`: 核心类，负责监听主图的时间轴变化，并同步到所有注册的副图（MACD, RSI），实现完美的上下对齐滚动。
+
+4.  **指标计算系统**:
+    *   内置计算引擎，支持 MA, EMA, BOLL, MACD, RSI 等常见指标的实时计算与缓存。
+
+**数据流向**:
+```
+Binance API ──(历史)──> useKlineData ──> klineAtom ──> ChartGroup
+                           ↑
+Binance WS ──(实时)────────┘
+
+User Interaction ──> DrawingToolbar ──> useDrawingTools ──> DrawingManager ──> Render
+```
 
 ---
 
@@ -356,13 +385,13 @@ features/orderbook/
 │   ├── OrderBook.tsx      # 主组件（虚拟列表）
 │   └── DepthChart.tsx     # 深度图
 └── hooks/
-    └── useOrderBook.ts    # 数据订阅
+    └── useOrderBook.ts    # 数据订阅 (Via Worker)
 ```
 
 **性能优化**:
-- 使用 Web Worker 进行深度合并计算
-- 使用 react-window 虚拟列表渲染
-- 字符串比较避免浮点精度问题
+- 使用 `tradingEngine.worker.ts` (Web Worker) 进行 WebSocket 连接管理与深度合并计算，将高频数据处理从主线程剥离。
+- 使用 `react-window` 虚拟列表渲染。
+- 字符串比较避免浮点精度问题。
 
 ---
 
@@ -427,35 +456,40 @@ if (response.success) {
 ```mermaid
 flowchart LR
     subgraph Binance
-        WS[WebSocket Stream]
+        WS1[General Stream]
+        WS2[Depth Stream]
     end
 
     subgraph Core
         Hub[MarketDataHub]
+        Worker[TradingEngineWorker]
     end
 
     subgraph Features
         Ticker[useTicker]
-        OB[useOrderBook]
         Kline[useKlineData]
+        OB[useOrderBook]
     end
 
     subgraph Atoms
         TA[tickerAtom]
-        OBA[orderBookAtom]
         KA[klineDataAtom]
+        OBA[orderBookAtom]
     end
 
     subgraph UI
         Header[TickerHeader]
-        OrderBook[OrderBook]
         Chart[TradingChart]
+        OrderBook[OrderBook]
     end
 
-    WS --> Hub
+    WS1 --> Hub
+    WS2 --> Worker
+
     Hub --> Ticker --> TA --> Header
-    Hub --> OB --> OBA --> OrderBook
     Hub --> Kline --> KA --> Chart
+
+    Worker --> OB --> OBA --> OrderBook
 ```
 
 ### 7.2 交易下单数据流
@@ -523,6 +557,16 @@ JavaScript 浮点数精度问题：
 ```
 
 对于金融场景，精度至关重要。Decimal.js 提供任意精度的十进制运算。
+
+### 8.5 为什么画线模块采用 Manager-Renderer 模式？
+
+为了解决画线逻辑与图表库强耦合的问题，采用了 **Manager-Renderer** 分离模式：
+
+*   **Manager (纯逻辑)**: 负责状态管理、坐标存储、命中检测。不依赖具体渲染库，易于单元测试。
+*   **Renderer (视觉呈现)**: 负责调用 `lightweight-charts` API 绘制图形。
+*   **Benefits**: 
+    1.  逻辑复用：未来如果更换图表库（如 ECharts），只需重写 Renderer。
+    2.  交互解耦：React 组件 (`DrawingToolbar`) 只需通过 Hook 操作 Manager，无需接触底层图表实例。
 
 ---
 

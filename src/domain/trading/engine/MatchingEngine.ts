@@ -369,6 +369,49 @@ export class MatchingEngine {
 
     return triggeredOrders;
   }
+
+  /**
+   * 检查限价单是否可以成交
+   * 应在每次订单簿更新时调用
+   * 返回触发成交的订单和产生的新成交记录
+   */
+  checkLimitOrders(orderBook: OrderBookData): { order: Order; newFills: OrderFill[] }[] {
+    const results: { order: Order; newFills: OrderFill[] }[] = [];
+
+    // 使用 Array.from 避免在其间修改 Map 导致的问题
+    const ordersToCheck = Array.from(this.activeOrders.values());
+
+    for (const order of ordersToCheck) {
+      if (order.type !== 'LIMIT') continue;
+
+      const initialFillsCount = order.fills.length;
+
+      // 尝试执行撮合
+      const updatedOrder = this.executeLimitOrder(order, orderBook);
+
+      // 如果发生了成交或状态变化（executeLimitOrder 在未成交时返回原对象）
+      if (updatedOrder !== order) {
+        console.log(`[MatchingEngine] Limit order ${order.orderId} matched via checkLimitOrders`);
+        
+        // 识别新产生的成交记录
+        const newFills = updatedOrder.fills.slice(initialFillsCount);
+        
+        if (OrderStateMachine.isTerminal(updatedOrder.status)) {
+          this.activeOrders.delete(order.orderId);
+          this.orderHistory.push(updatedOrder);
+        } else {
+          this.activeOrders.set(order.orderId, updatedOrder);
+        }
+
+        results.push({
+          order: updatedOrder,
+          newFills,
+        });
+      }
+    }
+
+    return results;
+  }
 }
 
 // 导出单例

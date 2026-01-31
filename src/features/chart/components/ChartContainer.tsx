@@ -101,14 +101,12 @@ export function ChartContainer() {
           showMA={showMA}
           showEMA={showEMA}
           showBOLL={showBOLL}
-          activeDrawingTool={activeTool}
           subchartType={activeSubchartType}
           onChangeChartType={setChartType}
           onToggleVolume={() => setShowVolume((v) => !v)}
           onToggleMA={() => setShowMA((v) => !v)}
           onToggleEMA={() => setShowEMA((v) => !v)}
           onToggleBOLL={() => setShowBOLL((v) => !v)}
-          onSelectDrawingTool={setActiveTool}
           onSelectSubchart={handleSubchartToggle}
           onResetScale={resetScale}
           onGoToLatest={goToLatest}

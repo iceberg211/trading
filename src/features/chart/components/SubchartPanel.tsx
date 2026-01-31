@@ -14,7 +14,7 @@ interface SubchartPanelProps {
   onRemove: (slotId: string) => void;
 }
 
-const SUBCHART_HEIGHT = 100;
+const SUBCHART_HEIGHT = 160;
 
 export function SubchartPanel({ slotId, type, onSetContainer, onRemove }: SubchartPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);

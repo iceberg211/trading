@@ -110,7 +110,60 @@ export function useTradingService(): TradingServiceReturn {
         }
       }
     }
-  }, [currentPrice, orderBook, symbolConfig, executeTrade]);
+
+    // 检查限价单（新增）
+    const matchedLimitOrders = matchingEngine.checkLimitOrders(orderBookData);
+
+    if (matchedLimitOrders.length > 0) {
+      for (const { order, newFills } of matchedLimitOrders) {
+        console.log(`[TradingService] Limit order matched:`, order.orderId, order.status);
+
+        // 1. 执行新成交的资金划转
+        if (newFills.length > 0) {
+          for (const fill of newFills) {
+            executeTrade({
+              baseAsset: symbolConfig.baseAsset,
+              quoteAsset: symbolConfig.quoteAsset,
+              side: order.side,
+              baseAmount: fill.quantity,
+              quoteAmount: new Decimal(fill.quantity).times(new Decimal(fill.price)).toFixed(8),
+              commission: fill.commission,
+              commissionAsset: fill.commissionAsset,
+            });
+          }
+        }
+
+        // 2. 如果订单完全成交，清理剩余冻结资金（主要是买单的滑点保护/价格优化部分）
+        if (order.status === 'FILLED') {
+           let lockAsset: string;
+           let initialLockAmount: string;
+
+           if (order.side === 'BUY') {
+             lockAsset = symbolConfig.quoteAsset;
+             // 重新计算当初的冻结金额: qty * price * 1.001
+             initialLockAmount = new Decimal(order.origQty)
+               .times(new Decimal(order.price))
+               .times(1.001)
+               .toFixed(8);
+           } else {
+             lockAsset = symbolConfig.baseAsset;
+             initialLockAmount = order.origQty;
+           }
+
+           const usedAmount = order.side === 'BUY' 
+             ? order.cummulativeQuoteQty 
+             : order.executedQty;
+
+           const remainingLock = new Decimal(initialLockAmount).minus(new Decimal(usedAmount));
+
+           if (remainingLock.gt(0)) {
+             console.log(`[TradingService] Unlocking remaining balance for order ${order.orderId}: ${remainingLock.toFixed(8)} ${lockAsset}`);
+             unlockBalance({ asset: lockAsset, amount: remainingLock.toFixed(8) });
+           }
+        }
+      }
+    }
+  }, [currentPrice, orderBook, symbolConfig, executeTrade, unlockBalance]);
 
   /**
    * 提交订单
