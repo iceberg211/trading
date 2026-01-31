@@ -1,0 +1,62 @@
+import { memo, useMemo } from 'react';
+import Decimal from 'decimal.js';
+
+interface OrderBookTooltipProps {
+  data: {
+    price: string;
+    avgPrice: string;
+    totalBase: string; // Total BTC
+    totalQuote: string; // Total USDT
+    type: 'bid' | 'ask';
+  } | null;
+  position: { x: number; y: number } | null;
+}
+
+export const OrderBookTooltip = memo(function OrderBookTooltip({ data, position }: OrderBookTooltipProps) {
+  if (!data || !position) return null;
+
+  const { price, avgPrice, totalBase, totalQuote, type } = data;
+
+  const formattedStats = useMemo(() => {
+    return {
+      avg: new Decimal(avgPrice).toFixed(2),
+      base: new Decimal(totalBase).toFixed(5), // 稍微多一点精度
+      quote: new Decimal(totalQuote).toFixed(2),
+    };
+  }, [avgPrice, totalBase, totalQuote]);
+
+  // 根据在屏幕的位置调整 tooltip 显示方向，防止溢出屏幕
+  // 简单起见，默认显示在鼠标右侧或左侧。这里假设显示在左侧浮动。
+  
+  return (
+    <div
+      className="fixed z-50 pointer-events-none bg-bg-card border border-line shadow-xl rounded-lg p-3 min-w-[200px]"
+      style={{
+        left: position.x - 220, // 默认显示在左侧
+        top: position.y - 60,   //稍微向上偏移
+      }}
+    >
+      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-line-dark">
+        <div className={`w-2 h-2 rounded-full ${type === 'bid' ? 'bg-up' : 'bg-down'}`} />
+        <span className="text-sm font-bold font-mono text-text-primary">
+           ≈ {new Decimal(price).toFixed(2)}
+        </span>
+      </div>
+      
+      <div className="space-y-1.5 text-xs">
+        <div className="flex justify-between">
+          <span className="text-text-tertiary">Avg Price:</span>
+          <span className="text-text-primary font-mono">{formattedStats.avg}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-text-tertiary">Total BTC:</span>
+          <span className="text-text-primary font-mono">{formattedStats.base}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-text-tertiary">Total USDT:</span>
+          <span className="text-text-primary font-mono">{formattedStats.quote}</span>
+        </div>
+      </div>
+    </div>
+  );
+});

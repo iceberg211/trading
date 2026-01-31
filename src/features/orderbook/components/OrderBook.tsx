@@ -1,9 +1,11 @@
-import { useMemo, useState, useLayoutEffect, useRef, memo, CSSProperties } from 'react';
+import { useMemo, useState, useLayoutEffect, useRef, memo, CSSProperties, useCallback } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { useAtomValue } from 'jotai';
 import { useOrderBook } from '../hooks/useOrderBook';
 import { DepthChart } from './DepthChart';
 import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
+import { aggregateOrders } from '../utils/orderAggregate';
+import { OrderBookTooltip } from './OrderBookTooltip';
 import Decimal from 'decimal.js';
 
 
@@ -22,22 +24,46 @@ const OrderRow = memo(function OrderRow({
   index,
 }: {
   style: CSSProperties;
-  data: { items: OrderItem[]; maxTotal: number; type: 'bid' | 'ask' };
+  data: { 
+    items: OrderItem[]; 
+    maxTotal: number; 
+    type: 'bid' | 'ask'; 
+    onHover: (data: any, e: React.MouseEvent) => void; 
+    onLeave: () => void;
+    pricePrecision: number;
+    qtyPrecision: number;
+  };
   index: number;
 }) {
-  const { items, maxTotal, type } = data;
+  const { items, maxTotal, type, onHover, onLeave, pricePrecision, qtyPrecision } = data;
   const item = items[index];
   if (!item) return null;
 
   const width = Math.min((parseFloat(item.total) / maxTotal) * 100, 100);
-  const formattedPrice = new Decimal(item.price).toFixed(2);
-  const formattedQty = new Decimal(item.qty).toFixed(4);
-  const formattedTotal = new Decimal(item.total).toFixed(2);
+  const formattedPrice = new Decimal(item.price).toFixed(pricePrecision);
+  const formattedQty = new Decimal(item.qty).toFixed(qtyPrecision);
+  const formattedTotal = new Decimal(item.total).toFixed(qtyPrecision);
+
+  // 准备 Tooltip 数据
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    // 估算 Total USDT
+    const totalUSDT = new Decimal(item.total).mul(item.price).toFixed(2);
+    
+    onHover({
+      price: item.price,
+      avgPrice: item.price,
+      totalBase: item.total,
+      totalQuote: totalUSDT,
+      type
+    }, e);
+  };
 
   return (
     <div
       style={style}
       className="relative grid grid-cols-3 gap-2 px-3 text-xs hover:bg-bg-hover cursor-pointer transition-colors items-center"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={onLeave}
     >
       {/* 深度背景条 */}
       <div
@@ -67,30 +93,45 @@ export function OrderBook() {
   const spreadRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(160);
 
-  // 从 symbolConfig 提取货币名称
+  // Tooltip State
+  const [activeTooltip, setActiveTooltip] = useState<{data: any, position: {x: number, y: number}} | null>(null);
+
+  // 从 symbolConfig 提取配置
   const quoteCurrency = symbolConfig?.quoteAsset || 'USDT';
   const baseCurrency = symbolConfig?.baseAsset || 'BTC';
-  const tickSize = symbolConfig?.tickSize || '0.01';
+  const defaultTickSize = symbolConfig?.tickSize || '0.01';
+  const pricePrecision = symbolConfig?.pricePrecision || 2;
+  const qtyPrecision = symbolConfig?.quantityPrecision || 4;
+  
+  // 精度选择状态
+  const [precision, setPrecision] = useState(defaultTickSize);
+  
+  // 当 symbol 改变时重置 precision
+  useLayoutEffect(() => {
+    setPrecision(defaultTickSize);
+  }, [defaultTickSize]);
 
+  // 生成精度选项 (0.01 -> 0.1 -> 1 -> 10)
+  const precisionOptions = useMemo(() => {
+    const options = [];
+    let current = new Decimal(defaultTickSize);
+    for (let i = 0; i < 4; i++) {
+      options.push(current.toFixed());
+      current = current.mul(10);
+    }
+    return options;
+  }, [defaultTickSize]);
 
-  // 处理买单数据
+  // 处理买单数据 (使用聚合工具)
   const bids = useMemo(() => {
-    let total = new Decimal(0);
-    return orderBook.bids.slice(0, 25).map(([price, qty]) => {
-      total = total.plus(qty);
-      return { price, qty, total: total.toString() };
-    });
-  }, [orderBook.bids]);
+    return aggregateOrders(orderBook.bids, precision, 'bids');
+  }, [orderBook.bids, precision]);
 
-  // 处理卖单数据（反转以便从低到高显示）
+  // 处理卖单数据 (反转以便高价在上)
   const asks = useMemo(() => {
-    let total = new Decimal(0);
-    const lowestAsks = orderBook.asks.slice(0, 25);
-    return lowestAsks.map(([price, qty]) => {
-      total = total.plus(qty);
-      return { price, qty, total: total.toString() };
-    }).reverse();
-  }, [orderBook.asks]);
+    const result = aggregateOrders(orderBook.asks, precision, 'asks');
+    return result.reverse(); 
+  }, [orderBook.asks, precision]);
 
   const maxTotal = useMemo(() => {
     const maxBid = bids.length > 0 ? parseFloat(bids[bids.length - 1].total) : 0;
@@ -99,7 +140,7 @@ export function OrderBook() {
   }, [bids, asks]);
 
 
-  // 根据内容区域高度动态计算列表高度，填满剩余空间
+  // 根据内容区域高度动态计算列表高度
   useLayoutEffect(() => {
     const updateHeights = () => {
       if (!contentRef.current || !spreadRef.current) return;
@@ -122,6 +163,18 @@ export function OrderBook() {
     return () => observer.disconnect();
   }, [viewMode]);
 
+  // Tooltip 事件处理
+  const handleHover = useCallback((data: any, e: React.MouseEvent) => {
+    setActiveTooltip({
+      data,
+      position: { x: e.clientX, y: e.clientY }
+    });
+  }, []);
+
+  const handleLeave = useCallback(() => {
+    setActiveTooltip(null);
+  }, []);
+
   if (error) {
     return (
       <div className="h-full flex items-center justify-center bg-bg-card">
@@ -131,8 +184,16 @@ export function OrderBook() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-bg-card">
-      {/* Header with View Mode Tabs */}
+    <div className="flex flex-col h-full min-h-0 bg-bg-card relative">
+      {/* Global Tooltip */}
+      {activeTooltip && (
+        <OrderBookTooltip 
+          data={activeTooltip.data} 
+          position={activeTooltip.position} 
+        />
+      )}
+
+      {/* Header with View Mode Tabs & Precision */}
       <div className="px-3 py-2 border-b border-line flex justify-between items-center">
         <div className="flex items-center gap-3">
           <button
@@ -163,8 +224,26 @@ export function OrderBook() {
           {syncStatus === 'gap_detected' && (
             <span className="text-[10px] text-down">Reconnecting...</span>
           )}
-          <span className="text-xs text-text-tertiary font-mono">{tickSize}</span>
-
+          
+          {/* Precision Selector */}
+          <div className="relative group">
+            <select
+              value={precision}
+              onChange={(e) => setPrecision(e.target.value)}
+              className="appearance-none bg-transparent text-xs text-text-tertiary font-mono hover:text-text-primary cursor-pointer pr-4 focus:outline-none text-right"
+            >
+              {precisionOptions.map((p) => (
+                <option key={p} value={p} className="bg-bg-card text-text-primary">
+                  {p}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-text-tertiary">
+              <svg width="8" height="6" viewBox="0 0 8 6" fill="currentColor">
+                <path d="M4 6L0 0H8L4 6Z" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -183,7 +262,6 @@ export function OrderBook() {
             <span className="text-left">Price({quoteCurrency})</span>
             <span className="text-right">Amount({baseCurrency})</span>
             <span className="text-right">Total</span>
-
           </div>
 
           {/* Content */}
@@ -201,7 +279,15 @@ export function OrderBook() {
                 itemCount={asks.length}
                 itemSize={20}
                 width="100%"
-                itemData={{ items: asks, maxTotal, type: 'ask' as const }}
+                itemData={{ 
+                  items: asks, 
+                  maxTotal, 
+                  type: 'ask' as const, 
+                  onHover: handleHover, 
+                  onLeave: handleLeave,
+                  pricePrecision,
+                  qtyPrecision
+                }}
                 className="scrollbar-thin"
               >
                 {({ index, style, data }) => (
@@ -213,7 +299,7 @@ export function OrderBook() {
             {/* Spread / Last Price */}
             <div ref={spreadRef} className="py-1.5 border-y border-line bg-bg px-3 flex items-center justify-between shrink-0">
               <div className={`text-lg font-bold ${orderBook.asks.length > 0 ? 'text-up' : 'text-text-tertiary'} font-mono`}>
-                {orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(2) : '--'}
+                {orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(pricePrecision) : '--'}
                 <span className="text-xs ml-2 text-text-tertiary font-normal">
                   ≈ ${orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(2) : '--'}
                 </span>
@@ -227,7 +313,15 @@ export function OrderBook() {
                 itemCount={bids.length}
                 itemSize={20}
                 width="100%"
-                itemData={{ items: bids, maxTotal, type: 'bid' as const }}
+                itemData={{ 
+                  items: bids, 
+                  maxTotal, 
+                  type: 'bid' as const, 
+                  onHover: handleHover, 
+                  onLeave: handleLeave,
+                  pricePrecision,
+                  qtyPrecision
+                }}
                 className="scrollbar-thin"
               >
                 {({ index, style, data }) => (

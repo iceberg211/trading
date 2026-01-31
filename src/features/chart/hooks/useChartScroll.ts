@@ -7,7 +7,7 @@
  * - 触发加载更多历史数据
  */
 
-import { useEffect, useRef, MutableRefObject } from 'react';
+import { useEffect, useRef, useState, MutableRefObject } from 'react';
 import { IChartApi, LogicalRange } from 'lightweight-charts';
 import { CHART_THRESHOLDS } from '../constants/chartConfig';
 
@@ -28,18 +28,39 @@ export function useChartScroll({
   const autoScrollRef = autoScroll ?? internalAutoScrollRef;
   const isLoadingMoreRef = useRef(false);
   const lastLoadMoreTimeRef = useRef(0);
-  const loadMoreRef = useRef(onLoadMore);
-  const isSubscribedRef = useRef(false);
+  
+  // 用于强制重新订阅的版本号
+  const [subscribeVersion, setSubscribeVersion] = useState(0);
 
-  // 保持 onLoadMore 引用最新
+  // 使用 ref 保持 onLoadMore 最新引用
+  const loadMoreRef = useRef(onLoadMore);
   useEffect(() => {
     loadMoreRef.current = onLoadMore;
   }, [onLoadMore]);
 
+  // 轮询检测 chart 实例是否可用（仅在未订阅时）
+  useEffect(() => {
+    if (chart.current) {
+      // chart 已可用，触发订阅
+      setSubscribeVersion(v => v + 1);
+      return;
+    }
+
+    // 等待 chart 实例创建
+    const checkInterval = setInterval(() => {
+      if (chart.current) {
+        setSubscribeVersion(v => v + 1);
+        clearInterval(checkInterval);
+      }
+    }, 50);
+
+    return () => clearInterval(checkInterval);
+  }, [chart]);
+
+  // 订阅可视范围变化
   useEffect(() => {
     const chartInstance = chart.current;
     if (!chartInstance) return;
-    if (isSubscribedRef.current) return;
 
     const handleVisibleRangeChange = (range: LogicalRange | null) => {
       if (!range) return;
@@ -50,7 +71,7 @@ export function useChartScroll({
       const isAtRightEdge = range.to >= lastIndex - CHART_THRESHOLDS.autoScrollThreshold;
       autoScrollRef.current = !isBeyondRightEdge && isAtRightEdge;
 
-      // 左边界检测
+      // 左边界检测 - 触发加载更多
       const loadMore = loadMoreRef.current;
       if (loadMore && !isLoadingMoreRef.current) {
         const isAtLeftEdge = range.from <= CHART_THRESHOLDS.loadMoreTrigger;
@@ -70,13 +91,13 @@ export function useChartScroll({
     };
 
     chartInstance.timeScale().subscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
-    isSubscribedRef.current = true;
+    console.log('[useChartScroll] Subscribed to visible range changes');
 
     return () => {
       chartInstance.timeScale().unsubscribeVisibleLogicalRangeChange(handleVisibleRangeChange);
-      isSubscribedRef.current = false;
+      console.log('[useChartScroll] Unsubscribed from visible range changes');
     };
-  }, [chart, dataLength]);
+  }, [chart, dataLength, autoScrollRef, subscribeVersion]);
 
   return {
     autoScroll: autoScrollRef,
