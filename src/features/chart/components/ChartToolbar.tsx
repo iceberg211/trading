@@ -17,14 +17,14 @@ interface ChartToolbarProps {
   showMA: boolean;
   showEMA: boolean;
   showBOLL: boolean;
-  activeDrawingTool: 'horizontal' | 'trendline' | null;
+  activeDrawingTool: 'horizontal' | 'trendline' | 'fibonacci' | null;
   subchartType: 'MACD' | 'RSI' | null;
   onChangeChartType: (type: 'candles' | 'line') => void;
   onToggleVolume: () => void;
   onToggleMA: () => void;
   onToggleEMA: () => void;
   onToggleBOLL: () => void;
-  onSelectDrawingTool: (tool: 'horizontal' | 'trendline' | null) => void;
+  onSelectDrawingTool: (tool: 'horizontal' | 'trendline' | 'fibonacci' | null) => void;
   onSelectSubchart: (type: 'MACD' | 'RSI' | null) => void;
   onResetScale: () => void;
   onGoToLatest: () => void;

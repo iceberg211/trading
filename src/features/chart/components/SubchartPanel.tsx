@@ -18,23 +18,27 @@ const SUBCHART_HEIGHT = 100;
 
 export function SubchartPanel({ slotId, type, onSetContainer, onRemove }: SubchartPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const registeredRef = useRef(false);
 
-  // 只在挂载时注册一次
+  // 当 type 存在且 container 准备好时注册
   useEffect(() => {
-    if (containerRef.current && !registeredRef.current) {
-      onSetContainer(slotId, containerRef.current);
-      registeredRef.current = true;
-    }
+    // 只有当 type 有值时才注册
+    if (!type) return;
+    
+    // 使用 requestAnimationFrame 确保 DOM 已渲染
+    const rafId = requestAnimationFrame(() => {
+      if (containerRef.current) {
+        onSetContainer(slotId, containerRef.current);
+      }
+    });
     
     return () => {
-      if (registeredRef.current) {
-        onSetContainer(slotId, null);
-        registeredRef.current = false;
-      }
+      cancelAnimationFrame(rafId);
+      // 清理时注销
+      onSetContainer(slotId, null);
     };
-  }, [slotId, onSetContainer]);
+  }, [slotId, type, onSetContainer]);
 
+  // 不显示空的副图
   if (!type) return null;
 
   return (

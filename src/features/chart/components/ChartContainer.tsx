@@ -1,8 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { useKlineData } from '../hooks/useKlineData';
 import { useChartGroup, SubchartConfig } from '../hooks/useChartGroup';
 import { useSubchartSlots, SubchartType } from '../hooks/useSubchartSlots';
-import { useDrawing } from '../hooks/useDrawing';
+import { useChartScroll } from '../hooks/useChartScroll';
+import { useDrawingManager, useDrawingTools, DrawingDropdown } from '../drawing';
 import { ChartToolbar } from './ChartToolbar';
 import { SubchartPanel } from './SubchartPanel';
 import { OHLCVPanel } from './OHLCVPanel';
@@ -10,13 +11,14 @@ import { OHLCVPanel } from './OHLCVPanel';
 
 export function ChartContainer() {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
-  const { loading, error, wsStatus, loadingMore, hasMore } = useKlineData();
+  const { klineData, loading, error, wsStatus, loadMore, loadingMore, hasMore } = useKlineData();
+  const dataLengthRef = useRef(0);
+  const candleSeriesRef = useRef<any>(null);
   const [chartType, setChartType] = useState<'candles' | 'line'>('candles');
   const [showVolume, setShowVolume] = useState(true);
   const [showMA, setShowMA] = useState(true);
   const [showEMA, setShowEMA] = useState(false);
   const [showBOLL, setShowBOLL] = useState(false);
-  const [activeDrawingTool, setActiveDrawingTool] = useState<'horizontal' | 'trendline' | null>(null);
   
   // 多副图管理
   const {
@@ -44,12 +46,34 @@ export function ChartContainer() {
     showBOLL,
   });
 
-  // 画线交互
-  useDrawing({
+  // 同步数据长度用于滚动检测
+  useEffect(() => {
+    dataLengthRef.current = klineData.length;
+  }, [klineData.length]);
+
+  // 同步 candleSeries 引用用于画线
+  useEffect(() => {
+    candleSeriesRef.current = mainSeries.candleSeries;
+  }, [mainSeries.candleSeries]);
+
+  // 滚动加载更多
+  useChartScroll({
     chart: mainChartRef,
-    candleSeries: { current: mainSeries.candleSeries } as any,
-    activeTool: activeDrawingTool,
-    onDrawingComplete: () => setActiveDrawingTool(null),
+    dataLength: dataLengthRef,
+    onLoadMore: loadMore,
+  });
+
+  // 画线管理器（新模块化系统）
+  const { manager, drawingsCount, clearAll, removeLast } = useDrawingManager({
+    chartRef: mainChartRef,
+    seriesRef: candleSeriesRef,
+  });
+
+  // 画线工具交互
+  const { activeTool, setActiveTool, pendingPoint } = useDrawingTools({
+    chartRef: mainChartRef,
+    seriesRef: candleSeriesRef,
+    manager,
   });
   
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -70,26 +94,36 @@ export function ChartContainer() {
   return (
     <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
       {/* 工具栏 */}
-      <div className="border-b border-line-dark px-2 bg-bg-soft/70">
-         <ChartToolbar
-           chartType={chartType}
-           showVolume={showVolume}
-           showMA={showMA}
-           showEMA={showEMA}
-           showBOLL={showBOLL}
-           activeDrawingTool={activeDrawingTool}
-           subchartType={activeSubchartType}
-           onChangeChartType={setChartType}
-           onToggleVolume={() => setShowVolume((v) => !v)}
-           onToggleMA={() => setShowMA((v) => !v)}
-           onToggleEMA={() => setShowEMA((v) => !v)}
-           onToggleBOLL={() => setShowBOLL((v) => !v)}
-           onSelectDrawingTool={setActiveDrawingTool}
-           onSelectSubchart={handleSubchartToggle}
-           onResetScale={resetScale}
-           onGoToLatest={goToLatest}
-         />
-       </div>
+      <div className="border-b border-line-dark px-2 bg-bg-soft/70 flex items-center justify-between">
+        <ChartToolbar
+          chartType={chartType}
+          showVolume={showVolume}
+          showMA={showMA}
+          showEMA={showEMA}
+          showBOLL={showBOLL}
+          activeDrawingTool={activeTool}
+          subchartType={activeSubchartType}
+          onChangeChartType={setChartType}
+          onToggleVolume={() => setShowVolume((v) => !v)}
+          onToggleMA={() => setShowMA((v) => !v)}
+          onToggleEMA={() => setShowEMA((v) => !v)}
+          onToggleBOLL={() => setShowBOLL((v) => !v)}
+          onSelectDrawingTool={setActiveTool}
+          onSelectSubchart={handleSubchartToggle}
+          onResetScale={resetScale}
+          onGoToLatest={goToLatest}
+        />
+        
+        {/* 画线工具下拉菜单 */}
+        <DrawingDropdown
+          activeTool={activeTool}
+          onSelectTool={setActiveTool}
+          onClearAll={clearAll}
+          onRemoveLast={removeLast}
+          drawingsCount={drawingsCount}
+          pendingPoint={pendingPoint !== null}
+        />
+      </div>
 
 
       {/* OHLCV 悬浮信息 - 固定高度避免图表抖动 */}
@@ -139,13 +173,6 @@ export function ChartContainer() {
           
           {!hasMore && !loading && !loadingMore && (
             <span className="text-text-tertiary">No more data</span>
-          )}
-
-          {/* 画线工具状态提示 */}
-          {activeDrawingTool && (
-            <span className="text-accent animate-pulse">
-              {activeDrawingTool === 'horizontal' ? '点击设置水平线' : '点击两点绘制趋势线'}
-            </span>
           )}
         </div>
 
