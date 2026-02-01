@@ -158,9 +158,9 @@ export class IndicatorManager {
         const bollData = calculateBOLL(candles, config.params.period || 20, config.params.stdDev || 2);
         if (bollData.length > 0) {
           const last = bollData[bollData.length - 1];
-          group.upper?.update({ time: (last.time / 1000) as Time, value: last.upper });
-          group.middle?.update({ time: (last.time / 1000) as Time, value: last.middle });
-          group.lower?.update({ time: (last.time / 1000) as Time, value: last.lower });
+          group.upper?.update({ time: last.time as Time, value: last.upper });
+          group.middle?.update({ time: last.time as Time, value: last.middle });
+          group.lower?.update({ time: last.time as Time, value: last.lower });
         }
       } else {
         const data = this.calculateSimpleIndicator(config, candles);
@@ -191,7 +191,7 @@ export class IndicatorManager {
     return results
       .filter((r): r is { time: number; value: number } => r.value !== null)
       .map(r => ({
-        time: (r.time / 1000) as Time,
+        time: r.time as Time,
         value: r.value,
       }));
   }
@@ -201,7 +201,7 @@ export class IndicatorManager {
    */
   private toBollLineData(data: BollResult[], band: 'upper' | 'middle' | 'lower'): LineData[] {
     return data.map(d => ({
-      time: (d.time / 1000) as Time,
+      time: d.time as Time,
       value: d[band],
     }));
   }

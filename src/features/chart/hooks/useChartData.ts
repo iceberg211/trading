@@ -112,9 +112,9 @@ export function useChartData({
       
       // BOLL 数据
       if (bollData.length > 0) {
-        bollUpperSeries.setData(bollData.map(d => ({ time: (d.time / 1000) as any, value: d.upper })));
-        bollMiddleSeries.setData(bollData.map(d => ({ time: (d.time / 1000) as any, value: d.middle })));
-        bollLowerSeries.setData(bollData.map(d => ({ time: (d.time / 1000) as any, value: d.lower })));
+        bollUpperSeries.setData(bollData.map(d => ({ time: d.time as any, value: d.upper })));
+        bollMiddleSeries.setData(bollData.map(d => ({ time: d.time as any, value: d.middle })));
+        bollLowerSeries.setData(bollData.map(d => ({ time: d.time as any, value: d.lower })));
       }
 
       // 更新缓存 Map

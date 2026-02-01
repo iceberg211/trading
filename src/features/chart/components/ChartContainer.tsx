@@ -36,7 +36,7 @@ export function ChartContainer() {
     container: slot.container,
   }));
 
-  const { resetScale, goToLatest, mainChartRef, mainSeries } = useChartGroup({
+  const { resetScale, goToLatest, mainChartRef, mainSeries, autoScrollRef } = useChartGroup({
     mainContainer: containerEl,
     subchartConfigs,
     chartType,
@@ -61,6 +61,7 @@ export function ChartContainer() {
     chart: mainChartRef,
     dataLength: dataLengthRef,
     onLoadMore: loadMore,
+    autoScroll: autoScrollRef,
   });
 
   // 画线管理器（新模块化系统）

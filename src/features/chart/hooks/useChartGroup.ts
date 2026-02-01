@@ -39,8 +39,10 @@ interface MainChartSeries {
 interface SubchartInstance {
   id: string;
   type: SubchartType;
+  container: HTMLDivElement;
   chart: IChartApi;
   series: Record<string, ISeriesApi<any>>;
+  resizeObserver: ResizeObserver;
 }
 
 interface UseChartGroupOptions {
@@ -83,6 +85,7 @@ export function useChartGroup({
   const timeSyncRef = useRef<TimeScaleSync>(new TimeScaleSync());
   const autoScrollRef = useRef(true);
   const lastDataLengthRef = useRef(0);
+  const lastEndTimeRef = useRef<number | null>(null);
 
   // 创建主图
   useEffect(() => {
@@ -147,6 +150,7 @@ export function useChartGroup({
     for (const subchart of subchartsRef.current) {
       if (!newConfigs.find((c) => c.id === subchart.id)) {
         timeSyncRef.current.removeSubchart(subchart.chart);
+        subchart.resizeObserver.disconnect();
         subchart.chart.remove();
       }
     }
@@ -159,7 +163,7 @@ export function useChartGroup({
 
       const existing = subchartsRef.current.find((s) => s.id === config.id);
       
-      if (existing && existing.type === config.type) {
+      if (existing && existing.type === config.type && existing.container === config.container) {
         updatedSubcharts.push(existing);
         continue;
       }
@@ -167,6 +171,7 @@ export function useChartGroup({
       // 移除旧的
       if (existing) {
         timeSyncRef.current.removeSubchart(existing.chart);
+        existing.resizeObserver.disconnect();
         existing.chart.remove();
       }
 
@@ -202,20 +207,40 @@ export function useChartGroup({
       });
       resizeObserver.observe(config.container);
 
-      updatedSubcharts.push({ id: config.id, type: config.type, chart, series });
+      updatedSubcharts.push({ id: config.id, type: config.type, container: config.container, chart, series, resizeObserver });
     }
 
     subchartsRef.current = updatedSubcharts;
   }, [subchartConfigs]);
+
+  // 组件卸载时清理副图
+  useEffect(() => {
+    return () => {
+      for (const subchart of subchartsRef.current) {
+        timeSyncRef.current.removeSubchart(subchart.chart);
+        subchart.resizeObserver.disconnect();
+        subchart.chart.remove();
+      }
+      subchartsRef.current = [];
+    };
+  }, []);
 
   // 更新主图数据
   useEffect(() => {
     const { candleSeries, lineSeries, volumeSeries, maSeries, emaSeries, bollUpperSeries, bollMiddleSeries, bollLowerSeries } = mainSeriesRef.current;
     const chart = mainChartRef.current;
 
-    if (!chart || !candleSeries || !lineSeries || !volumeSeries || klineData.length === 0) return;
+    if (!chart || !candleSeries || !lineSeries || !volumeSeries) return;
+
+    if (klineData.length === 0) {
+      lastDataLengthRef.current = 0;
+      lastEndTimeRef.current = null;
+      return;
+    }
 
     const isReset = klineData.length < lastDataLengthRef.current || lastDataLengthRef.current === 0;
+    const currentEndTime = klineData[klineData.length - 1].time;
+    const isNewCandle = lastEndTimeRef.current !== null && currentEndTime !== lastEndTimeRef.current;
 
     // K线数据
     candleSeries.setData(klineData.map(toChartCandle));
@@ -237,9 +262,12 @@ export function useChartGroup({
       const from = Math.max(0, to - DEFAULT_VISIBLE_BARS + 1);
       chart.timeScale().setVisibleLogicalRange({ from, to });
       autoScrollRef.current = true;
+    } else if (autoScrollRef.current && isNewCandle) {
+      chart.timeScale().scrollToRealTime();
     }
 
     lastDataLengthRef.current = klineData.length;
+    lastEndTimeRef.current = currentEndTime;
 
     // 同步副图时间轴
     timeSyncRef.current.syncToMainChart();
@@ -312,6 +340,7 @@ export function useChartGroup({
     mainChartRef,
     mainSeries: mainSeriesRef.current,
     subcharts: subchartsRef.current,
+    autoScrollRef,
     resetScale,
     goToLatest,
   };

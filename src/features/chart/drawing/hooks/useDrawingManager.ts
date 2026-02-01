@@ -18,59 +18,61 @@ export function useDrawingManager({ chartRef, seriesRef }: UseDrawingManagerOpti
   const [manager, setManager] = useState<DrawingManager | null>(null);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const managerRef = useRef<DrawingManager | null>(null);
+  const boundChartRef = useRef<IChartApi | null>(null);
+  const boundSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
-  // 创建/销毁 Manager
-  useEffect(() => {
-    const chart = chartRef.current;
-    const series = seriesRef.current;
+  const destroyManager = useCallback(() => {
+    if (!managerRef.current) return;
+    managerRef.current.destroy();
+    managerRef.current = null;
+    setManager(null);
+    setDrawings([]);
+    boundChartRef.current = null;
+    boundSeriesRef.current = null;
+    console.log('[useDrawingManager] Manager destroyed');
+  }, []);
 
-    if (!chart || !series) {
-      return;
-    }
-
-    // 创建新的 Manager
+  const createManager = useCallback((chart: IChartApi, series: ISeriesApi<'Candlestick'>) => {
     const newManager = new DrawingManager(chart, series);
-    
-    // 监听变化
     newManager.onDrawingsChanged = (updatedDrawings) => {
       setDrawings(updatedDrawings);
     };
-
     managerRef.current = newManager;
     setManager(newManager);
+    boundChartRef.current = chart;
+    boundSeriesRef.current = series;
     console.log('[useDrawingManager] Manager created');
+  }, []);
 
-    return () => {
-      newManager.destroy();
-      managerRef.current = null;
-      setManager(null);
-      setDrawings([]);
-      console.log('[useDrawingManager] Manager destroyed');
-    };
-  }, [chartRef, seriesRef]);
-
-  // 轮询检测图表实例可用
+  // 监听 chart/series 变化，自动重新绑定
   useEffect(() => {
-    if (managerRef.current) return;
-
-    const checkInterval = setInterval(() => {
+    const syncManager = () => {
       const chart = chartRef.current;
       const series = seriesRef.current;
 
-      if (chart && series && !managerRef.current) {
-        const newManager = new DrawingManager(chart, series);
-        newManager.onDrawingsChanged = (updatedDrawings) => {
-          setDrawings(updatedDrawings);
-        };
-        managerRef.current = newManager;
-        setManager(newManager);
-        console.log('[useDrawingManager] Manager created via polling');
-        clearInterval(checkInterval);
+      if (!chart || !series) {
+        if (managerRef.current) {
+          destroyManager();
+        }
+        return;
       }
-    }, 100);
 
-    return () => clearInterval(checkInterval);
-  }, [chartRef, seriesRef]);
+      const chartChanged = chart !== boundChartRef.current;
+      const seriesChanged = series !== boundSeriesRef.current;
+
+      if (chartChanged || seriesChanged || !managerRef.current) {
+        destroyManager();
+        createManager(chart, series);
+      }
+    };
+
+    syncManager();
+    const checkInterval = setInterval(syncManager, 200);
+    return () => {
+      clearInterval(checkInterval);
+      destroyManager();
+    };
+  }, [chartRef, seriesRef, createManager, destroyManager]);
 
   // 清除所有画线
   const clearAll = useCallback(() => {

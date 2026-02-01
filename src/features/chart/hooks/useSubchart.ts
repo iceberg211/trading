@@ -149,15 +149,15 @@ export function useSubchart({ container, type }: UseSubchartOptions) {
       const macdData = calculateMACD(klineData, 12, 26, 9);
       
       const macdLineData: LineData[] = macdData.map(d => ({
-        time: (d.time / 1000) as Time,
+        time: d.time as Time,
         value: d.macd,
       }));
       const signalData: LineData[] = macdData.map(d => ({
-        time: (d.time / 1000) as Time,
+        time: d.time as Time,
         value: d.signal,
       }));
       const histogramData = macdData.map(d => ({
-        time: (d.time / 1000) as Time,
+        time: d.time as Time,
         value: d.histogram,
         color: d.histogram >= 0 ? '#0ECB81' : '#F6465D',
       }));
@@ -169,7 +169,7 @@ export function useSubchart({ container, type }: UseSubchartOptions) {
       const rsiData = calculateRSI(klineData, 14);
       
       const rsiLineData: LineData[] = rsiData.map(d => ({
-        time: (d.time / 1000) as Time,
+        time: d.time as Time,
         value: d.value,
       }));
       
