@@ -87,6 +87,7 @@ export const SERIES_OPTIONS = {
     borderDownColor: CHART_COLORS.downColor,
     wickUpColor: CHART_COLORS.upColor,
     wickDownColor: CHART_COLORS.downColor,
+    crosshairMarkerVisible: false,
   },
   line: {
     color: CHART_COLORS.lineChart,

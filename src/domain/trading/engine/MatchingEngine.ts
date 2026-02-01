@@ -44,9 +44,62 @@ export class MatchingEngine {
   private tradeIdCounter = 1;
   private activeOrders: Map<number, Order> = new Map();
   private orderHistory: Order[] = [];
+  private readonly STORAGE_KEY = 'TRADING_ENGINE_STATE_v1';
 
   constructor(config: Partial<MatchingEngineConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.loadState();
+  }
+
+  /**
+   * 加载状态
+   */
+  private loadState() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+
+      const data = JSON.parse(raw);
+      
+      if (data.activeOrders) {
+        this.activeOrders = new Map(data.activeOrders);
+      }
+      if (data.orderHistory) {
+        this.orderHistory = data.orderHistory;
+      }
+      if (data.orderIdCounter) {
+        this.orderIdCounter = data.orderIdCounter;
+      }
+      if (data.tradeIdCounter) {
+        this.tradeIdCounter = data.tradeIdCounter;
+      }
+      
+      console.log(`[MatchingEngine] State loaded. ${this.activeOrders.size} active orders.`);
+    } catch (e) {
+      console.error('[MatchingEngine] Failed to load state', e);
+    }
+  }
+
+  /**
+   * 保存状态
+   */
+  private saveState() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+
+      const state = {
+        activeOrders: Array.from(this.activeOrders.entries()),
+        orderHistory: this.orderHistory,
+        orderIdCounter: this.orderIdCounter,
+        tradeIdCounter: this.tradeIdCounter,
+      };
+
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.error('[MatchingEngine] Failed to save state', e);
+    }
   }
 
   /**
@@ -114,6 +167,8 @@ export class MatchingEngine {
     }
 
     console.log(`[MatchingEngine] Order ${executedOrder.orderId} ${executedOrder.status}`);
+
+    this.saveState();
 
     return {
       success: true,
@@ -282,6 +337,7 @@ export class MatchingEngine {
     const canceledOrder = OrderStateMachine.transition(order, 'CANCEL');
     this.activeOrders.delete(orderId);
     this.orderHistory.push(canceledOrder);
+    this.saveState();
 
     return {
       success: true,
@@ -364,6 +420,7 @@ export class MatchingEngine {
         }
 
         triggeredOrders.push(executedOrder);
+        this.saveState();
       }
     }
 
@@ -407,6 +464,8 @@ export class MatchingEngine {
           order: updatedOrder,
           newFills,
         });
+        
+        this.saveState();
       }
     }
 

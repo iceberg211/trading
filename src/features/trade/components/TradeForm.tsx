@@ -1,5 +1,9 @@
+import { useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { useTradeForm } from '../hooks/useTradeForm';
 import { OrderType } from '../atoms/tradeAtom';
+import { showOrderConfirmationAtom } from '../atoms/settingsAtom';
+import { TradeConfirmationModal } from './TradeConfirmationModal';
 import Decimal from 'decimal.js';
 
 // 订单类型选择器
@@ -33,7 +37,6 @@ function OrderTypeSelector({
       ))}
     </div>
   );
-
 }
 
 // 百分比按钮组
@@ -60,7 +63,6 @@ function PercentageButtons({
         >
           {p}%
         </button>
-
       ))}
     </div>
   );
@@ -82,11 +84,27 @@ export function TradeForm() {
     setPercentage,
     submitOrder,
   } = useTradeForm();
+
+  const showConfirmation = useAtomValue(showOrderConfirmationAtom);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   
   const availableBalance = form.side === 'buy' ? balance.USDT : balance.BTC;
   const balanceUnit = form.side === 'buy' ? 'USDT' : 'BTC';
   const isMarketOrder = form.type === 'market';
   const isStopLimit = form.type === 'stop_limit';
+
+  const handlePreSubmit = () => {
+    if (showConfirmation) {
+      setIsConfirmationOpen(true);
+    } else {
+      submitOrder();
+    }
+  };
+
+  const handleConfirmSubmit = () => {
+    submitOrder();
+    setIsConfirmationOpen(false); // Close modal after trigger (though hook might reset form)
+  };
 
   return (
     <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
@@ -114,7 +132,6 @@ export function TradeForm() {
         </button>
       </div>
 
-
       {/* Form Body */}
       <div className="flex-1 p-4 space-y-3 overflow-y-auto">
         {/* Order Type Selector */}
@@ -140,7 +157,6 @@ export function TradeForm() {
                 onChange={(e) => setStopPrice(e.target.value)}
                 className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
                 placeholder="Trigger price"
-
               />
               <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
             </div>
@@ -160,7 +176,6 @@ export function TradeForm() {
                 onChange={(e) => setPrice(e.target.value)}
                 className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
                 placeholder="0.00"
-
               />
               <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
             </div>
@@ -175,7 +190,6 @@ export function TradeForm() {
               Market Price
             </div>
           </div>
-
         )}
 
         {/* Amount Input */}
@@ -190,7 +204,6 @@ export function TradeForm() {
               placeholder="0.00"
             />
             <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">BTC</span>
-
           </div>
         </div>
 
@@ -213,7 +226,6 @@ export function TradeForm() {
               disabled={isMarketOrder}
             />
             <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
-
           </div>
         </div>
       </div>
@@ -221,9 +233,8 @@ export function TradeForm() {
       {/* Submit Button */}
       <div className="p-4 pt-3 border-t border-line-dark bg-bg-panel/50">
         <button
-
           disabled={!validation.isValid || submitting}
-          onClick={submitOrder}
+          onClick={handlePreSubmit}
           className={`w-full py-3 rounded text-sm font-bold text-white transition-all transform active:scale-[0.98] ${
             form.side === 'buy' 
               ? 'bg-up hover:bg-up-light shadow-lg shadow-up/20' 
@@ -235,6 +246,21 @@ export function TradeForm() {
           )}
         </button>
       </div>
+
+      {/* Confirmation Modal */}
+      <TradeConfirmationModal 
+        isOpen={isConfirmationOpen}
+        onClose={() => setIsConfirmationOpen(false)}
+        onConfirm={handleConfirmSubmit}
+        data={{
+          side: form.side,
+          type: form.type,
+          price: form.price,
+          amount: form.amount,
+          total: form.total,
+          symbol: 'BTC/USDT'
+        }}
+      />
     </div>
   );
 }

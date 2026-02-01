@@ -46,13 +46,12 @@
 
 ### 2.1 分层架构图
 
-```mermaid
-graph TB
     subgraph UI["UI 层"]
         A[TradingPage]
         B[ChartContainer]
         C[OrderBook]
         D[TradeForm]
+        D2[TradeConfirmationModal]
         E[AssetPanel]
         F[DrawingDropdown]
     end
@@ -64,6 +63,7 @@ graph TB
         J[useTicker]
         K[useOrders]
         L[useDrawingTools]
+        S1[settingsAtom]
     end
 
     subgraph Domain["领域层 Domain"]
@@ -78,16 +78,19 @@ graph TB
         R[TradingEngineWorker]
     end
 
-    subgraph External["外部服务"]
+    subgraph External["外部服务/存储"]
         S[Binance REST API]
         T[Binance WebSocket]
+        LS[(LocalStorage)]
     end
 
     A --> B & C & D & E
+    D --> D2
     B --> F
     B --> G & L
     C --> H
-    D --> I
+    D --> I & S1
+    D2 --> S1
     E --> O
 
     G & J --> P
@@ -100,6 +103,7 @@ graph TB
     R --> T
     Q --> S
     M --> N & O
+    M --> LS
 ```
 
 ### 2.2 目录结构
@@ -256,12 +260,23 @@ sequenceDiagram
         MatchingEngine->>StateMachine: transition(NEW)
         MatchingEngine-->>TradingService: { success: true, status: 'NEW' }
     end
+    MatchingEngine->>LocalStorage: saveState()
 ```
 
 **支持的订单类型**:
 - `LIMIT`: 限价单
 - `MARKET`: 市价单
 - `STOP_LIMIT`: 止损限价单
+
+**数据持久化技术细节**:
+
+*   **Storage Key**: `TRADING_ENGINE_STATE_v1`
+*   **触发时机**:
+    *   `submitOrder` (下单后)
+    *   `cancelOrder` (撤单后)
+    *   `checkLimitOrders` / `checkStopOrders` (撮合执行后)
+*   **状态恢复**: 引擎实例化 (`constructor`) 时自动调用 `loadState()` 从 `localStorage` 读取并反序列化 JSON 数据。
+
 
 ---
 
@@ -393,6 +408,18 @@ features/orderbook/
 - 使用 `react-window` 虚拟列表渲染。
 - 字符串比较避免浮点精度问题。
 
+**交互增强实现详述**:
+
+*   **精度切换 (Precision Switching)**:
+    *   通过 `groupByPrice` 函数对原始 OrderBook 数据进行聚合运算。
+    *   支持精度：`0.01` (原始), `0.1`, `1`, `10`。
+    *   聚合算法：`floor(price / precision) * precision` (Bids 向下取整)，`ceil(price / precision) * precision` (Asks 向上取整)。
+
+*   **悬停详情 (Hover Details)**:
+    *   **加权均价 (Avg Price)**: `Sum(Price * Vol) / Sum(Vol)`。
+    *   **累计金额 (Total USDT)**: 当前档位及之前所有档位的总价值累加。
+
+
 ---
 
 ### 5.3 Trade 模块 - 交易表单
@@ -401,9 +428,11 @@ features/orderbook/
 ```
 features/trade/
 ├── atoms/
-│   └── tradeAtom.ts       # 表单状态
+│   ├── tradeAtom.ts       # 表单状态
+│   └── settingsAtom.ts    # [NEW] 交易设置 (如二次确认开关)
 ├── components/
-│   └── TradeForm.tsx      # 交易表单 UI
+│   ├── TradeForm.tsx      # 交易表单 UI
+│   └── TradeConfirmationModal.tsx # [NEW] 下单二次确认弹窗
 └── hooks/
     └── useTradeForm.ts    # 表单逻辑 + 下单
 ```
@@ -413,17 +442,32 @@ features/trade/
 const { submitOrder, availableBalances } = useTradingService();
 
 // 下单
-const response = submitOrder({
-  side: 'BUY',
-  type: 'LIMIT',
-  quantity: '0.1',
-  price: '85000',
-});
+**核心 Atoms**:
+```typescript
+// 1. 设置 Atom (持久化)
+export const tradeSettingsAtom = atomWithStorage<TradeSettings>(
+  'trade_settings_v1', 
+  defaultTradeSettings
+);
 
-if (response.success) {
-  console.log('Order placed:', response.order);
-}
+// 2. 确认弹窗开关 (Derived Atom with Storage)
+export const showOrderConfirmationAtom = atomWithStorage(
+  'trade_settings_show_confirmation', 
+  true
+);
 ```
+
+**交互逻辑 (Confirmation Workflow)**:
+
+1.  用户点击 "Buy/Sell" 按钮。
+2.  `TradeForm` 读取 `showOrderConfirmationAtom` 值。
+3.  **If true**:
+    *   拦截提交。
+    *   打开 `TradeConfirmationModal` 并根据表单数据填充 `props.data`。
+    *   用户在弹窗点击 "Confirm" -> 触发实际 `submitOrder`。
+    *   如果用户勾选 "Don't show again" -> 更新 atom 为 `false`。
+4.  **If false**: 直接调用 `submitOrder`。
+
 
 ---
 
@@ -498,6 +542,7 @@ flowchart LR
 flowchart LR
     subgraph UI
         Form[TradeForm]
+        Modal[TradeConfirmationModal]
     end
 
     subgraph Hooks
@@ -511,14 +556,22 @@ flowchart LR
         BA[balanceAtom]
     end
 
+    subgraph Infrastructure
+        LS[(LocalStorage)]
+    end
+
     subgraph UI2
         Panel[AssetPanel]
         Orders[OpenOrders]
     end
 
-    Form --> TF --> TS --> ME
+    Form --> Modal
+    Modal -.->|Confirm| TF
+    Form -.->|Direct| TF
+    TF --> TS --> ME
     ME --> SM
     ME --> BA
+    ME --> LS
     BA --> Panel
     ME --> Orders
 ```
@@ -567,6 +620,12 @@ JavaScript 浮点数精度问题：
 *   **Benefits**: 
     1.  逻辑复用：未来如果更换图表库（如 ECharts），只需重写 Renderer。
     2.  交互解耦：React 组件 (`DrawingToolbar`) 只需通过 Hook 操作 Manager，无需接触底层图表实例。
+
+### 8.6 为什么采用本地模拟撮合 + 持久化？
+
+为了在无后端支持的情况下提供完整的闭环交易体验：
+- **本地撮合**: 能够立即响应订单，并未前端开发提供完整的状态流转测试环境。
+- **LocalStorage 持久化**: 弥补纯内存撮合的缺陷，保证用户在刷新页面后能看到之前的挂单和成交记录，模拟真实账户的连续性。
 
 ---
 
