@@ -2,9 +2,11 @@
  * 时间轴同步器
  * 
  * 确保主图和所有副图的时间轴联动
+ * 使用 TimeRange（实际时间）而非 LogicalRange（数组索引）同步
+ * 解决副图数据起始位置不同导致的错位问题
  */
 
-import type { IChartApi, ITimeScaleApi, LogicalRange, Time } from 'lightweight-charts';
+import type { IChartApi, ITimeScaleApi, Time, Range } from 'lightweight-charts';
 
 export class TimeScaleSync {
   private mainChart: IChartApi | null = null;
@@ -52,23 +54,24 @@ export class TimeScaleSync {
 
     const timeScale = this.mainChart.timeScale();
 
-    // 可见范围变化时同步副图
-    timeScale.subscribeVisibleLogicalRangeChange(this.handleRangeChange);
+    // 使用 TimeRange 监听，基于实际时间同步
+    timeScale.subscribeVisibleTimeRangeChange(this.handleTimeRangeChange);
   }
 
   /**
-   * 处理主图范围变化
+   * 处理主图时间范围变化（使用实际时间）
    */
-  private handleRangeChange = (range: LogicalRange | null) => {
-    if (this.isSyncing || !range) return;
+  private handleTimeRangeChange = (timeRange: Range<Time> | null) => {
+    if (this.isSyncing || !timeRange) return;
     
     this.isSyncing = true;
     
     for (const subchart of this.subcharts) {
       try {
-        subchart.timeScale().setVisibleLogicalRange(range);
+        // 使用 setVisibleRange 基于时间同步，确保不同长度的数据也能对齐
+        subchart.timeScale().setVisibleRange(timeRange);
       } catch {
-        // 忽略同步错误
+        // 忽略同步错误（可能是副图还没有数据）
       }
     }
     
@@ -76,14 +79,14 @@ export class TimeScaleSync {
   };
 
   /**
-   * 同步所有副图到主图当前范围
+   * 同步所有副图到主图当前范围（使用时间范围）
    */
   syncToMainChart() {
     if (!this.mainChart) return;
     
-    const range = this.mainChart.timeScale().getVisibleLogicalRange();
-    if (range) {
-      this.handleRangeChange(range);
+    const timeRange = this.mainChart.timeScale().getVisibleRange();
+    if (timeRange) {
+      this.handleTimeRangeChange(timeRange);
     }
   }
 
@@ -99,7 +102,7 @@ export class TimeScaleSync {
    */
   dispose() {
     if (this.mainChart) {
-      this.mainChart.timeScale().unsubscribeVisibleLogicalRangeChange(this.handleRangeChange);
+      this.mainChart.timeScale().unsubscribeVisibleTimeRangeChange(this.handleTimeRangeChange);
     }
     this.mainChart = null;
     this.subcharts = [];

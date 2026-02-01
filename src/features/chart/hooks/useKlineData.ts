@@ -41,6 +41,8 @@ export function useKlineData() {
   const latestIntervalRef = useRef(interval);
   const loadRequestIdRef = useRef(0);
   const loadMoreRequestIdRef = useRef(0);
+  const prevWsStatusRef = useRef(wsStatus);
+  const reconnectFillRequestIdRef = useRef(0);
   
   useEffect(() => {
     latestSymbolRef.current = symbol;
@@ -219,6 +221,53 @@ export function useKlineData() {
       }
     };
   }, [symbol, interval, handleWsMessage, setWsStatus]);
+
+  /**
+   * 断线补齐：当 WS 从断线状态恢复时，拉取最近的K线数据填补空缺
+   */
+  useEffect(() => {
+    const prevStatus = prevWsStatusRef.current;
+    prevWsStatusRef.current = wsStatus;
+
+    // 只有从非 connected 状态变为 connected 时才触发补齐
+    const wasDisconnected = prevStatus === 'disconnected' || prevStatus === 'reconnecting';
+    const isNowConnected = wsStatus === 'connected';
+
+    if (wasDisconnected && isNowConnected && klineData.length > 0) {
+      const requestId = ++reconnectFillRequestIdRef.current;
+      
+      // 拉取最近 50 根K线来补齐可能的断层
+      const FILL_LIMIT = 50;
+      
+      binanceApi.getKlines(symbol, interval, FILL_LIMIT)
+        .then((recentCandles) => {
+          // 忽略过期响应
+          if (requestId !== reconnectFillRequestIdRef.current) return;
+          if (latestSymbolRef.current !== symbol || latestIntervalRef.current !== interval) return;
+          
+          if (recentCandles.length === 0) return;
+          
+          // 合并数据，去重并覆盖更新
+          setKlineData((prev) => {
+            const timeMap = new Map(prev.map(c => [c.time, c]));
+            
+            // 用新数据覆盖/补充
+            for (const candle of recentCandles) {
+              timeMap.set(candle.time, candle);
+            }
+            
+            // 按时间排序
+            const merged = Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
+            
+            console.log(`[useKlineData] 断线补齐: 原 ${prev.length} 根, 补齐后 ${merged.length} 根`);
+            return trimKlines(merged);
+          });
+        })
+        .catch((err) => {
+          console.error('[useKlineData] 断线补齐失败:', err);
+        });
+    }
+  }, [wsStatus, symbol, interval, klineData.length, setKlineData]);
 
   /**
    * 当 symbol 或 interval 变化时，立即清空旧数据并重新加载

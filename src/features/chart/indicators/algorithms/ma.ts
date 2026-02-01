@@ -30,3 +30,15 @@ export function calculateMA(candles: Candle[], period: number): IndicatorResult[
   
   return results;
 }
+
+/**
+ * 计算最后一个 MA 值
+ */
+export function calculateLastMA(candles: Candle[], period: number): number | null {
+  if (candles.length < period) return null;
+  let sum = 0;
+  for (let i = candles.length - period; i < candles.length; i += 1) {
+    sum += parseFloat(candles[i].close);
+  }
+  return sum / period;
+}
