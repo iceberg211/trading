@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useAtom } from 'jotai';
 import { showOrderConfirmationAtom } from '../atoms/settingsAtom';
@@ -100,8 +100,8 @@ export function TradeConfirmationModal({
           </Button>
           <Button 
             onClick={handleConfirm} 
-            className={`flex-1 ${isBuy ? 'bg-up hover:bg-up-hover' : 'bg-down hover:bg-down-hover'} text-white border-none`}
-            variant="default"
+            className={`flex-1 ${isBuy ? 'bg-up hover:bg-up-light' : 'bg-down hover:bg-down-light'} text-white border-none`}
+            variant={isBuy ? 'buy' : 'sell'}
           >
             Confirm {isBuy ? 'Buy' : 'Sell'}
           </Button>
