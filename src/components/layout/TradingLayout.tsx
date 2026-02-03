@@ -5,6 +5,7 @@ import { RecentTrades } from '../trading/RecentTrades';
 import { AssetPanel } from '../trading/AssetPanel';
 import { OrderPanel } from '../trading/OrderPanel';
 import { NetworkStatusBar } from '../ui/NetworkStatusBar';
+import { DevPanel } from '../ui/DevPanel';
 import { ChartContainer } from '../../features/chart/components/ChartContainer';
 import { OrderBook } from '../../features/orderbook/components/OrderBook';
 import { TradeForm } from '../../features/trade/components/TradeForm';
@@ -29,6 +30,7 @@ export function TradingLayout() {
     <div className="flex flex-col h-screen overflow-hidden bg-bg">
       {/* Network Status Banner */}
       <NetworkStatusBar />
+      <DevPanel />
 
       {/* Top: Ticker Bar (Fixed) */}
       <div className="shrink-0 border-b border-line relative z-50 overflow-visible">

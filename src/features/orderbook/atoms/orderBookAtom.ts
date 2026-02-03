@@ -37,3 +37,12 @@ export const orderBookSyncStatusAtom = atom<OrderBookSyncStatus>('uninitialized'
 
 // Gap 检测计数器 - 防止频繁重连
 export const orderBookGapCountAtom = atom<number>(0);
+
+// Debug info from orderbook engine worker (for DevPanel)
+export const orderBookBufferSizeAtom = atom<number>(0);
+export const orderBookLastGapAtom = atom<{
+  expected: number;
+  got: number;
+  lastUpdateId: number;
+  time: number;
+} | null>(null);

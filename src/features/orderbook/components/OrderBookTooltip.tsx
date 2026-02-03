@@ -13,17 +13,18 @@ interface OrderBookTooltipProps {
 }
 
 export const OrderBookTooltip = memo(function OrderBookTooltip({ data, position }: OrderBookTooltipProps) {
-  if (!data || !position) return null;
-
-  const { price, avgPrice, totalBase, totalQuote, type } = data;
-
   const formattedStats = useMemo(() => {
+    if (!data) return null;
     return {
-      avg: new Decimal(avgPrice).toFixed(2),
-      base: new Decimal(totalBase).toFixed(5), // 稍微多一点精度
-      quote: new Decimal(totalQuote).toFixed(2),
+      avg: new Decimal(data.avgPrice).toFixed(2),
+      base: new Decimal(data.totalBase).toFixed(5), // 稍微多一点精度
+      quote: new Decimal(data.totalQuote).toFixed(2),
     };
-  }, [avgPrice, totalBase, totalQuote]);
+  }, [data]);
+
+  if (!data || !position || !formattedStats) return null;
+
+  const { price, type } = data;
 
   // 根据在屏幕的位置调整 tooltip 显示方向，防止溢出屏幕
   // 简单起见，默认显示在鼠标右侧或左侧。这里假设显示在左侧浮动。

@@ -28,6 +28,7 @@ export class MarketDataHub {
   private statusChangeHandlers: Set<(status: HubStatus) => void>;
   private requestId = 1;
   private isConnected = false;
+  private unsubscribeWsStatus: (() => void) | null = null;
   
   private constructor() {
     // 使用单连接 + 动态订阅模式
@@ -59,31 +60,29 @@ export class MarketDataHub {
       this.handleMessage(data);
     });
     
-    // 连接 WebSocket
-    this.ws.connect();
-    
-    // 监听连接状态变化 - 使用 1000ms 快速轮询以及时检测连接状态
-    const checkStatusInterval = setInterval(() => {
-      const status = this.ws.getStatus();
+    // 使用 WSManager 的事件化状态监听，避免轮询延迟和噪音
+    this.unsubscribeWsStatus = this.ws.onStatusChange((status) => {
       const wasConnected = this.isConnected;
       this.isConnected = status === 'connected';
-      
-      // 连接成功时重新订阅
+
       if (!wasConnected && this.isConnected) {
         console.log('[MarketDataHub] WebSocket connected, resubscribing all streams...');
         this.resubscribeAll();
         this.notifyStatusChange('connected');
+        return;
       }
-      
-      // 断开时记录
+
       if (wasConnected && !this.isConnected) {
         console.log('[MarketDataHub] WebSocket disconnected');
         this.notifyStatusChange(status as HubStatus);
+      } else if (!this.isConnected) {
+        // also broadcast intermediate statuses (connecting/reconnecting/disconnected)
+        this.notifyStatusChange(status as HubStatus);
       }
-    }, 1000); // 1000ms 快速轮询
-    
-    // 保存定时器引用用于清理
-    (this as any).statusCheckInterval = checkStatusInterval;
+    });
+
+    // 连接 WebSocket
+    this.ws.connect();
   }
   
   /**
@@ -203,7 +202,7 @@ export class MarketDataHub {
   
   private sendSubscribe(streamName: string) {
     if (!this.isConnected) {
-      console.warn(`[MarketDataHub] Cannot subscribe - not connected: ${streamName}`);
+      // Not an error: subscription will be sent on (re)connect via resubscribeAll().
       return;
     }
     
@@ -330,9 +329,8 @@ export class MarketDataHub {
    * 销毁实例（主要用于测试）
    */
   destroy() {
-    if ((this as any).statusCheckInterval) {
-      clearInterval((this as any).statusCheckInterval);
-    }
+    this.unsubscribeWsStatus?.();
+    this.unsubscribeWsStatus = null;
     this.ws.disconnect();
     this.subscriptionManager.clear();
     this.messageHandlers.clear();
