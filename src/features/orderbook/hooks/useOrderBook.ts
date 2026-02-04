@@ -163,10 +163,11 @@ export function useOrderBook() {
         setSyncStatus('gap_detected');
       }
 
-      // On reconnect, re-sync from a fresh snapshot.
-      const wasDisconnected = prev === 'disconnected' || prev === 'reconnecting';
+      // On reconnect (or initial connect), re-sync from a fresh snapshot.
+      // Include 'connecting' as a "not connected" state to handle initial page load
+      const wasNotConnected = prev === 'disconnected' || prev === 'reconnecting' || prev === 'connecting';
       const isNowConnected = status === 'connected';
-      if (wasDisconnected && isNowConnected) {
+      if (wasNotConnected && isNowConnected) {
         initOrderBook();
       }
     });

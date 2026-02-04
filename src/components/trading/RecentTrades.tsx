@@ -5,6 +5,7 @@ import { symbolAtom } from '@/features/chart/atoms/klineAtom';
 import { marketDataHub } from '@/core/gateway';
 import { runtimeConfig } from '@/core/config/runtime';
 import { formatPrice, formatQuantity } from '@/utils/decimal';
+import { ConnectionStatus, type ConnectionState } from '@/components/ui/ConnectionStatus';
 import dayjs from 'dayjs';
 
 interface TradeItem {
@@ -58,6 +59,7 @@ export function RecentTrades() {
   const symbol = useAtomValue(symbolAtom);
   const [trades, setTrades] = useState<TradeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wsStatus, setWsStatus] = useState<ConnectionState>('disconnected');
   const containerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(200);
   const initializedRef = useRef(false);
@@ -147,10 +149,16 @@ export function RecentTrades() {
     // 通过 MarketDataHub 订阅实时数据
     const unsubscribe = marketDataHub.subscribe('trade', symbol);
     const unregister = marketDataHub.onMessage('trade', handleWsMessage);
+    
+    // 监听 WebSocket 连接状态
+    const unregisterStatus = marketDataHub.onStatusChange((status) => {
+      setWsStatus(status as ConnectionState);
+    });
 
     return () => {
       unsubscribe();
       unregister();
+      unregisterStatus();
     };
   }, [symbol, handleWsMessage, loadHistoricalTrades]);
 
@@ -185,7 +193,7 @@ export function RecentTrades() {
       {/* Header */}
       <div className="px-3 py-2 border-b border-line-dark flex justify-between items-center bg-bg-soft/70">
         <span className="text-[11px] uppercase tracking-[0.14em] text-text-tertiary">Trades</span>
-        <div className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-yellow-400' : 'bg-up'} animate-pulse`} />
+        <ConnectionStatus status={loading ? 'syncing' : wsStatus} variant="badge" />
       </div>
 
       {/* Column Headers */}

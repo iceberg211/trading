@@ -6,6 +6,7 @@ import { DepthChart } from './DepthChart';
 import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
 import { aggregateOrders } from '../utils/orderAggregate';
 import { OrderBookTooltip } from './OrderBookTooltip';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import Decimal from 'decimal.js';
 
 
@@ -218,12 +219,15 @@ export function OrderBook() {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          {syncStatus === 'syncing' && (
-            <span className="text-[10px] text-accent animate-pulse">Syncing...</span>
-          )}
-          {syncStatus === 'gap_detected' && (
-            <span className="text-[10px] text-down">Reconnecting...</span>
-          )}
+          <ConnectionStatus 
+            status={
+              syncStatus === 'syncing' ? 'syncing' :
+              syncStatus === 'gap_detected' ? 'reconnecting' :
+              syncStatus === 'synchronized' ? 'connected' :
+              'disconnected'
+            } 
+            variant="badge" 
+          />
           
           {/* Precision Selector */}
           <div className="relative group">
