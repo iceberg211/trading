@@ -30,14 +30,11 @@ body {
   display: flex;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #161A1E;
-  background-image:
-    radial-gradient(circle at 15% 20%, rgba(252, 213, 53, 0.08), transparent 45%),
-    radial-gradient(circle at 85% 10%, rgba(14, 203, 129, 0.08), transparent 40%),
-    radial-gradient(circle at 80% 80%, rgba(246, 70, 93, 0.08), transparent 45%),
-    linear-gradient(180deg, rgba(22, 26, 30, 0.92), rgba(12, 14, 17, 0.98));
-  background-attachment: fixed;
+  /* 终端风更接近 Binance Pro：更平、更低噪声 */
+  background-color: #0b0e11;
+  background-image: none;
   color: #EAECEF;
+  font-variant-numeric: tabular-nums;
 }
 
 #root {
@@ -98,4 +95,3 @@ input:-webkit-autofill:active {
 .animate-flash-down {
   animation: flash-down 0.3s ease-out;
 }
-

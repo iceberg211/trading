@@ -40,21 +40,21 @@ export const OpenOrders = memo(function OpenOrders() {
   return (
     <div className="flex flex-col h-full">
       {/* 批量操作 */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-line">
-        <span className="text-xs text-text-tertiary">
+      <div className="flex items-center justify-between px-3 h-8 border-b border-line-dark bg-bg-panel">
+        <span className="text-xxs text-text-tertiary">
           共 {openOrders.length} 个挂单
         </span>
         <button
           onClick={handleCancelAll}
           disabled={loading}
-          className="text-xs text-down hover:text-down/80 disabled:opacity-50"
+          className="text-xxs text-down hover:text-down/80 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
         >
           全部撤销
         </button>
       </div>
 
       {/* 表头 */}
-      <div className="grid grid-cols-7 gap-2 px-4 py-2 text-[10px] text-text-tertiary uppercase tracking-wide border-b border-line">
+      <div className="grid grid-cols-7 gap-2 px-3 h-7 items-center text-xxs text-text-tertiary border-b border-line-dark">
         <span>时间</span>
         <span>交易对</span>
         <span>方向</span>
@@ -87,7 +87,7 @@ const OrderRow = memo(function OrderRow({
   const typeLabel = order.type === 'limit' ? '限价' : order.type === 'market' ? '市价' : '止损限价';
 
   return (
-    <div className="grid grid-cols-7 gap-2 px-4 py-2 text-xs hover:bg-bg-hover transition-colors items-center border-b border-line/50">
+    <div className="grid grid-cols-7 gap-2 px-3 h-8 text-xs hover:bg-bg-soft/60 transition-colors items-center border-b border-line-dark/60 tabular-nums">
       <span className="text-text-tertiary font-mono">
         {dayjs(order.time).format('HH:mm:ss')}
       </span>
@@ -105,7 +105,7 @@ const OrderRow = memo(function OrderRow({
         <button
           onClick={() => onCancel(order.id)}
           disabled={loading}
-          className="text-down hover:text-down/80 disabled:opacity-50"
+          className="text-down hover:text-down/80 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
         >
           撤销
         </button>

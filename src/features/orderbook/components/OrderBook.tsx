@@ -7,6 +7,7 @@ import { symbolConfigAtom } from '@/features/symbol/atoms/symbolAtom';
 import { aggregateOrders } from '../utils/orderAggregate';
 import { OrderBookTooltip } from './OrderBookTooltip';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
+import { SegmentedControl } from '@/components/ui';
 import Decimal from 'decimal.js';
 
 
@@ -62,7 +63,7 @@ const OrderRow = memo(function OrderRow({
   return (
     <div
       style={style}
-      className="relative grid grid-cols-3 gap-2 px-3 text-xs hover:bg-bg-hover cursor-pointer transition-colors items-center"
+      className="relative grid grid-cols-3 gap-2 px-3 text-xs leading-5 hover:bg-bg-soft/60 cursor-pointer transition-colors items-center tabular-nums"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={onLeave}
     >
@@ -195,28 +196,17 @@ export function OrderBook() {
       )}
 
       {/* Header with View Mode Tabs & Precision */}
-      <div className="px-3 py-2 border-b border-line flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setViewMode('book')}
-            className={`text-sm font-medium transition-colors ${
-              viewMode === 'book' 
-                ? 'text-text-primary' 
-                : 'text-text-tertiary hover:text-text-secondary'
-            }`}
-          >
-            Order Book
-          </button>
-          <button
-            onClick={() => setViewMode('depth')}
-            className={`text-sm font-medium transition-colors ${
-              viewMode === 'depth' 
-                ? 'text-text-primary' 
-                : 'text-text-tertiary hover:text-text-secondary'
-            }`}
-          >
-            Depth
-          </button>
+      <div className="px-3 h-8 border-b border-line-dark bg-bg-panel flex justify-between items-center">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="text-xs font-heading font-medium text-text-primary shrink-0">订单簿</div>
+          <SegmentedControl
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+              { value: 'book', label: '盘口' },
+              { value: 'depth', label: '深度' },
+            ]}
+          />
         </div>
         <div className="flex items-center gap-2">
           <ConnectionStatus 
@@ -234,7 +224,7 @@ export function OrderBook() {
             <select
               value={precision}
               onChange={(e) => setPrecision(e.target.value)}
-              className="appearance-none bg-transparent text-xs text-text-tertiary font-mono hover:text-text-primary cursor-pointer pr-4 focus:outline-none text-right"
+              className="appearance-none h-7 pl-2 pr-6 rounded-sm bg-bg-soft/60 border border-line-dark text-xs text-text-secondary font-mono hover:text-text-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 text-right"
             >
               {precisionOptions.map((p) => (
                 <option key={p} value={p} className="bg-bg-card text-text-primary">
@@ -242,7 +232,7 @@ export function OrderBook() {
                 </option>
               ))}
             </select>
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-text-tertiary">
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-text-tertiary">
               <svg width="8" height="6" viewBox="0 0 8 6" fill="currentColor">
                 <path d="M4 6L0 0H8L4 6Z" />
               </svg>
@@ -262,10 +252,10 @@ export function OrderBook() {
       {viewMode === 'book' && (
         <>
           {/* Column Headers */}
-          <div className="grid grid-cols-3 gap-2 px-3 py-1 text-[10px] font-medium text-text-tertiary uppercase tracking-wide">
-            <span className="text-left">Price({quoteCurrency})</span>
-            <span className="text-right">Amount({baseCurrency})</span>
-            <span className="text-right">Total</span>
+          <div className="grid grid-cols-3 gap-2 px-3 h-7 items-center text-xxs font-medium text-text-tertiary border-b border-line-dark bg-bg-card">
+            <span className="text-left">价格({quoteCurrency})</span>
+            <span className="text-right">数量({baseCurrency})</span>
+            <span className="text-right">累计</span>
           </div>
 
           {/* Content */}
@@ -301,10 +291,10 @@ export function OrderBook() {
             </div>
 
             {/* Spread / Last Price */}
-            <div ref={spreadRef} className="py-1.5 border-y border-line bg-bg px-3 flex items-center justify-between shrink-0">
-              <div className={`text-lg font-bold ${orderBook.asks.length > 0 ? 'text-up' : 'text-text-tertiary'} font-mono`}>
+            <div ref={spreadRef} className="h-9 border-y border-line-dark bg-bg-panel px-3 flex items-center justify-between shrink-0">
+              <div className={`text-base font-bold ${orderBook.asks.length > 0 ? 'text-up' : 'text-text-tertiary'} font-mono tabular-nums`}>
                 {orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(pricePrecision) : '--'}
-                <span className="text-xs ml-2 text-text-tertiary font-normal">
+                <span className="text-xxs ml-2 text-text-tertiary font-normal">
                   ≈ ${orderBook.asks.length > 0 ? new Decimal(orderBook.asks[0][0]).toFixed(2) : '--'}
                 </span>
               </div>

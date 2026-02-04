@@ -36,7 +36,7 @@ export const TradeHistory = memo(function TradeHistory() {
   return (
     <div className="flex flex-col h-full">
       {/* 表头 */}
-      <div className="grid grid-cols-7 gap-2 px-4 py-2 text-[10px] text-text-tertiary uppercase tracking-wide border-b border-line">
+      <div className="grid grid-cols-7 gap-2 px-3 h-7 items-center text-xxs text-text-tertiary border-b border-line-dark">
         <span>时间</span>
         <span>交易对</span>
         <span>方向</span>
@@ -60,7 +60,7 @@ const TradeRow = memo(function TradeRow({ trade }: { trade: Trade }) {
   const isBuy = trade.side === 'buy';
 
   return (
-    <div className="grid grid-cols-7 gap-2 px-4 py-2 text-xs hover:bg-bg-hover transition-colors items-center border-b border-line/50">
+    <div className="grid grid-cols-7 gap-2 px-3 h-8 text-xs hover:bg-bg-soft/60 transition-colors items-center border-b border-line-dark/60 tabular-nums">
       <span className="text-text-tertiary font-mono">
         {dayjs(trade.time).format('MM-DD HH:mm:ss')}
       </span>

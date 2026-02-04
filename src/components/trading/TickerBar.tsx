@@ -46,11 +46,10 @@ export function TickerBar() {
   }
 
   return (
-    <div className="relative z-40 flex items-center bg-bg-card/90 backdrop-blur border-b border-line-dark">
-      <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
+    <div className="relative z-40 flex items-center bg-bg-card border-b border-line-dark">
 
       {/* Symbol Selector - 独立容器，不受 overflow 影响 */}
-        <div className="flex items-center gap-2 shrink-0 px-4 py-2.5">
+      <div className="flex items-center gap-2 shrink-0 px-3 h-12">
 
         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-[10px] font-bold text-white">
           {baseAsset.charAt(0)}
@@ -63,11 +62,11 @@ export function TickerBar() {
 
 
       {/* 可滚动区域：价格和统计数据 */}
-      <div className="flex items-center gap-4 lg:gap-6 px-4 py-2.5 overflow-x-auto">
+      <div className="flex items-center gap-4 lg:gap-6 px-3 h-12 overflow-x-auto">
 
         {/* Last Price with Flash Animation */}
         <div className="shrink-0">
-          <div className="font-heading text-2xl lg:text-3xl font-bold font-mono tracking-tight">
+          <div className="font-heading text-xl lg:text-2xl font-bold font-mono tracking-tight tabular-nums">
 
             <PriceFlash 
               price={lastPrice} 
@@ -75,41 +74,41 @@ export function TickerBar() {
               className={isPositive ? 'text-up' : 'text-down'}
             />
           </div>
-          <div className="text-[10px] text-text-tertiary">
+          <div className="text-xxs text-text-tertiary">
             ≈ ${lastPrice ? formatPrice(lastPrice, pricePrecision) : '--'}
           </div>
         </div>
 
         {/* 24h Stats */}
-        <div className="flex items-center gap-4 lg:gap-6 text-[11px] shrink-0">
+        <div className="flex items-center gap-4 lg:gap-6 text-xxs shrink-0">
 
           <div>
-            <span className="text-text-tertiary block text-[10px]">24h Change</span>
-            <span className={`font-mono font-medium ${isPositive ? 'text-up' : 'text-down'}`}>
+            <span className="text-text-tertiary block text-xxs">24h 涨跌</span>
+            <span className={`font-mono font-medium tabular-nums ${isPositive ? 'text-up' : 'text-down'}`}>
               {isPositive ? '+' : ''}{priceChangePercent.toFixed(2)}%
             </span>
           </div>
           <div className="hidden sm:block">
-            <span className="text-text-tertiary block text-[10px]">24h High</span>
-            <span className="text-text-primary font-mono">
+            <span className="text-text-tertiary block text-xxs">24h 最高</span>
+            <span className="text-text-primary font-mono tabular-nums">
               {ticker?.highPrice ? formatPrice(ticker.highPrice, pricePrecision) : '--'}
             </span>
           </div>
           <div className="hidden sm:block">
-            <span className="text-text-tertiary block text-[10px]">24h Low</span>
-            <span className="text-text-primary font-mono">
+            <span className="text-text-tertiary block text-xxs">24h 最低</span>
+            <span className="text-text-primary font-mono tabular-nums">
               {ticker?.lowPrice ? formatPrice(ticker.lowPrice, pricePrecision) : '--'}
             </span>
           </div>
           <div className="hidden md:block">
-            <span className="text-text-tertiary block text-[10px]">24h Vol({baseAsset})</span>
-            <span className="text-text-primary font-mono">
+            <span className="text-text-tertiary block text-xxs">24h 成交量({baseAsset})</span>
+            <span className="text-text-primary font-mono tabular-nums">
               {ticker?.volume ? formatLargeNumber(ticker.volume) : '--'}
             </span>
           </div>
           <div className="hidden lg:block">
-            <span className="text-text-tertiary block text-[10px]">24h Vol({quoteAsset})</span>
-            <span className="text-text-primary font-mono">
+            <span className="text-text-tertiary block text-xxs">24h 成交额({quoteAsset})</span>
+            <span className="text-text-primary font-mono tabular-nums">
               {ticker?.quoteVolume ? formatLargeNumber(ticker.quoteVolume) : '--'}
             </span>
           </div>

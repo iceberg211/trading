@@ -9,31 +9,31 @@ export type ConnectionStatusProps = {
 
 const STATUS_CONFIG = {
   connected: {
-    label: 'Live',
+    label: '实时',
     color: 'bg-up/10 text-up',
     dotColor: 'bg-up',
     pulse: false,
   },
   syncing: {
-    label: 'Syncing',
+    label: '同步中',
     color: 'bg-accent/10 text-accent',
     dotColor: 'bg-accent',
     pulse: true,
   },
   connecting: {
-    label: '...',
+    label: '…',
     color: 'bg-accent/10 text-accent',
     dotColor: 'bg-accent',
     pulse: true,
   },
   reconnecting: {
-    label: 'Retry',
+    label: '重连',
     color: 'bg-accent/10 text-accent',
     dotColor: 'bg-yellow-400',
     pulse: true,
   },
   disconnected: {
-    label: 'Off',
+    label: '离线',
     color: 'bg-down/10 text-down',
     dotColor: 'bg-down',
     pulse: false,
@@ -93,7 +93,7 @@ export function ConnectionStatus({
   // Full 模式：完整状态栏（类似 K 线图）
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
-      <span className="text-text-secondary text-[10px]">WS:</span>
+      <span className="text-text-secondary text-[10px]">连接:</span>
       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${config.color} ${pulseClass}`}>
         {config.label}
       </span>

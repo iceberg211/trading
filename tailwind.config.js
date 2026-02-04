@@ -7,6 +7,18 @@ export default {
         heading: ['"Space Grotesk"', 'sans-serif'],
         body: ['"DM Sans"', 'sans-serif'],
       },
+      borderRadius: {
+        panel: '6px',
+        pill: '9999px',
+      },
+      zIndex: {
+        dropdown: '40',
+        tooltip: '50',
+        modal: '60',
+      },
+      fontSize: {
+        xxs: '11px',
+      },
         colors: {
         // 交易方向色
         up: {

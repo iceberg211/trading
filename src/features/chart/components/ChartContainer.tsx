@@ -104,9 +104,9 @@ export function ChartContainer() {
 
 
   return (
-    <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
+    <div className="flex flex-col h-full bg-bg-card">
       {/* 工具栏 */}
-      <div className="border-b border-line-dark px-2 bg-bg-soft/70 flex items-center justify-between">
+      <div className="border-b border-line-dark px-2 h-8 bg-bg-panel flex items-center justify-between gap-2">
         <ChartToolbar
           chartType={chartType}
           showVolume={showVolume}
@@ -137,7 +137,7 @@ export function ChartContainer() {
 
 
       {/* OHLCV 悬浮信息 - 固定高度避免图表抖动 */}
-      <div className="px-3 py-1.5 bg-bg-panel border-b border-line-dark h-[28px] overflow-hidden">
+      <div className="px-3 bg-bg-card border-b border-line-dark h-[28px] overflow-hidden flex items-center">
         <OHLCVPanel />
       </div>
 
