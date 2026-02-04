@@ -28,7 +28,7 @@ function OrderTypeSelector({
           onClick={() => onSelect(t.value)}
           className={`flex-1 h-7 text-xs rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             selected === t.value
-              ? 'bg-bg-soft text-text-primary font-medium shadow-sm'
+              ? 'bg-bg-soft text-text-primary font-medium'
               : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-soft/40'
           }`}
         >
@@ -50,14 +50,14 @@ function PercentageButtons({
   const percentages = [25, 50, 75, 100];
   
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-4 gap-1.5">
       {percentages.map((p) => (
         <button
           key={p}
           onClick={() => onSelect(p)}
-          className={`py-1 text-xs rounded border transition-all ${
+          className={`h-7 text-xxs rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             selected === p
-              ? 'border-accent text-accent bg-accent/10'
+              ? 'border-accent/70 text-accent bg-accent/15'
               : 'border-line-dark text-text-secondary hover:text-text-primary hover:bg-bg-soft/40'
           }`}
         >
@@ -112,7 +112,7 @@ export function TradeForm() {
       <div className="flex border-b border-line-dark bg-bg-panel h-8">
         <button
           onClick={() => setSide('buy')}
-          className={`flex-1 text-xs font-semibold uppercase tracking-[0.14em] transition-colors border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
+          className={`flex-1 text-xs font-semibold transition-colors border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             form.side === 'buy' 
               ? 'border-up text-up bg-up-bg/50' 
               : 'border-transparent text-text-secondary hover:text-text-primary'
@@ -122,7 +122,7 @@ export function TradeForm() {
         </button>
         <button
           onClick={() => setSide('sell')}
-          className={`flex-1 text-xs font-semibold uppercase tracking-[0.14em] transition-colors border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
+          className={`flex-1 text-xs font-semibold transition-colors border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             form.side === 'sell' 
               ? 'border-down text-down bg-down-bg/50' 
               : 'border-transparent text-text-secondary hover:text-text-primary'
@@ -149,14 +149,14 @@ export function TradeForm() {
         {/* Stop Price Input (only for stop-limit) */}
         {isStopLimit && (
           <div className="space-y-1">
-            <label className="text-xs text-text-tertiary">Stop Price</label>
+            <label className="text-xs text-text-tertiary">止损价</label>
             <div className="relative group">
               <input
                 type="text"
                 value={form.stopPrice}
                 onChange={(e) => setStopPrice(e.target.value)}
                 className="w-full h-8 bg-bg-soft/80 text-text-primary px-3 text-xs rounded-sm border border-line-dark outline-none font-mono transition-colors hover:border-line-light focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/35"
-                placeholder="Trigger price"
+                placeholder="触发价格"
               />
               <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
             </div>
@@ -167,7 +167,7 @@ export function TradeForm() {
         {!isMarketOrder && (
           <div className="space-y-1">
             <label className="text-xs text-text-tertiary">
-              {isStopLimit ? 'Limit Price' : 'Price'}
+              {isStopLimit ? '限价' : '价格'}
             </label>
             <div className="relative group">
               <input
@@ -194,7 +194,7 @@ export function TradeForm() {
 
         {/* Amount Input */}
         <div className="space-y-1">
-          <label className="text-xs text-text-tertiary">Amount</label>
+          <label className="text-xs text-text-tertiary">数量</label>
           <div className="relative group">
             <input
               type="text"
@@ -215,7 +215,7 @@ export function TradeForm() {
 
         {/* Total Input */}
         <div className="space-y-1">
-          <label className="text-xs text-text-tertiary">Total</label>
+          <label className="text-xs text-text-tertiary">金额</label>
           <div className="relative group">
             <input
               type="text"

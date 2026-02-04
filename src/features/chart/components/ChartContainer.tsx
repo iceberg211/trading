@@ -1,4 +1,5 @@
 import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
+import { useAtomValue } from 'jotai';
 import { useKlineData } from '../hooks/useKlineData';
 import { useChartGroup, SubchartConfig } from '../hooks/useChartGroup';
 import { useSubchartSlots, SubchartType } from '../hooks/useSubchartSlots';
@@ -8,9 +9,13 @@ import { ChartToolbar } from './ChartToolbar';
 import { SubchartPanel } from './SubchartPanel';
 import { OHLCVPanel } from './OHLCVPanel';
 import { ChartStatusBar } from './ChartStatusBar';
+import { TradingViewWidget } from './TradingViewWidget';
+import { chartViewAtom } from '../atoms/chartViewAtom';
+import { intervalAtom, symbolAtom } from '../atoms/klineAtom';
 
+const noop = () => {};
 
-export function ChartContainer() {
+function BasicChartView() {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const { klineData, loading, error, wsStatus, loadMore, loadingMore, hasMore } = useKlineData();
   const dataLengthRef = useRef(0);
@@ -20,7 +25,7 @@ export function ChartContainer() {
   const [showMA, setShowMA] = useState(true);
   const [showEMA, setShowEMA] = useState(false);
   const [showBOLL, setShowBOLL] = useState(false);
-  
+
   // 多副图管理
   const {
     slots: subchartSlots,
@@ -29,7 +34,7 @@ export function ChartContainer() {
     addSubchart,
     removeSubchart,
   } = useSubchartSlots();
-  
+
   // 转换为 ChartGroup 需要的配置格式
   const subchartConfigs: SubchartConfig[] = useMemo(() => subchartSlots.map((slot) => ({
     id: slot.id,
@@ -77,7 +82,7 @@ export function ChartContainer() {
     seriesRef: candleSeriesRef,
     manager,
   });
-  
+
   const setContainerRef = useCallback((node: HTMLDivElement | null) => {
     setContainerEl(node);
   }, []);
@@ -94,17 +99,17 @@ export function ChartContainer() {
   const handleToggleBOLL = useCallback(() => setShowBOLL((v) => !v), []);
 
   // 获取当前激活的副图类型（用于工具栏高亮）
-  const activeSubchartType: 'MACD' | 'RSI' | null = useMemo(() => 
-    activeSlots.length > 0 && (activeSlots[0].type === 'MACD' || activeSlots[0].type === 'RSI') 
-      ? activeSlots[0].type 
-      : null,
-    [activeSlots]
-  );
-
-
+  const activeSubchartType: 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR' | null = useMemo(() => {
+    const first = activeSlots[0]?.type ?? null;
+    if (!first) return null;
+    if (first === 'MACD' || first === 'RSI' || first === 'KDJ' || first === 'OBV' || first === 'WR') {
+      return first;
+    }
+    return null;
+  }, [activeSlots]);
 
   return (
-    <div className="flex flex-col h-full bg-bg-card">
+    <>
       {/* 工具栏 */}
       <div className="border-b border-line-dark px-2 h-8 bg-bg-panel flex items-center justify-between gap-2">
         <ChartToolbar
@@ -123,7 +128,7 @@ export function ChartContainer() {
           onResetScale={resetScale}
           onGoToLatest={goToLatest}
         />
-        
+
         {/* 画线工具下拉菜单 */}
         <DrawingDropdown
           activeTool={activeTool}
@@ -134,7 +139,6 @@ export function ChartContainer() {
           pendingPoint={pendingPoint !== null}
         />
       </div>
-
 
       {/* OHLCV 悬浮信息 - 固定高度避免图表抖动 */}
       <div className="px-3 bg-bg-card border-b border-line-dark h-[28px] overflow-hidden flex items-center">
@@ -152,7 +156,7 @@ export function ChartContainer() {
 
       {/* 主图表 */}
       <div ref={setContainerRef} className={`min-h-0 ${activeSlots.length > 0 ? 'flex-[3]' : 'flex-1'}`} />
-      
+
       {/* 副图区域 (最多3个) */}
       {subchartSlots.map((slot) => (
         <SubchartPanel
@@ -163,6 +167,48 @@ export function ChartContainer() {
           onRemove={removeSubchart}
         />
       ))}
+    </>
+  );
+}
+
+function TradingViewChartView() {
+  const symbol = useAtomValue(symbolAtom);
+  const interval = useAtomValue(intervalAtom);
+
+  return (
+    <>
+      <div className="border-b border-line-dark px-2 h-8 bg-bg-panel flex items-center justify-between gap-2">
+        <ChartToolbar
+          chartType="candles"
+          showVolume={false}
+          showMA={false}
+          showEMA={false}
+          showBOLL={false}
+          subchartType={null}
+          onChangeChartType={noop}
+          onToggleVolume={noop}
+          onToggleMA={noop}
+          onToggleEMA={noop}
+          onToggleBOLL={noop}
+          onSelectSubchart={noop}
+          onResetScale={noop}
+          onGoToLatest={noop}
+        />
+      </div>
+
+      <div className="flex-1 min-h-0">
+        <TradingViewWidget symbol={symbol} interval={interval} exchangePrefix="BINANCE" />
+      </div>
+    </>
+  );
+}
+
+export function ChartContainer() {
+  const chartView = useAtomValue(chartViewAtom);
+
+  return (
+    <div className="flex flex-col h-full bg-bg-card">
+      {chartView === 'basic' ? <BasicChartView /> : <TradingViewChartView />}
     </div>
   );
 }

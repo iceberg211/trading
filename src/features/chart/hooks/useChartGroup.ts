@@ -17,7 +17,7 @@ import { TimeScaleSync } from '../core/TimeScaleSync';
 import { CHART_OPTIONS, SERIES_OPTIONS, CHART_COLORS } from '../constants/chartConfig';
 import { toChartCandle, toLinePoint, toVolumeData } from '../utils/chartTransformers';
 
-export type SubchartType = 'MACD' | 'RSI' | null;
+export type SubchartType = 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR' | null;
 
 export interface SubchartConfig {
   id: string;
@@ -186,15 +186,27 @@ export function useChartGroup({
 
       const series: Record<string, ISeriesApi<any>> = {};
 
-      if (config.type === 'MACD') {
-        series.histogram = chart.addHistogramSeries({ color: '#26a69a', priceFormat: { type: 'price', precision: 4, minMove: 0.0001 } });
-        series.macdLine = chart.addLineSeries({ color: '#2962FF', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-        series.signalLine = chart.addLineSeries({ color: '#FF6D00', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-      } else if (config.type === 'RSI') {
-        series.rsiLine = chart.addLineSeries({ color: '#9C27B0', lineWidth: 1, priceLineVisible: false, lastValueVisible: true });
-        series.rsiLine.createPriceLine({ price: 70, color: '#F6465D', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
-        series.rsiLine.createPriceLine({ price: 30, color: '#0ECB81', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
-      }
+  if (config.type === 'MACD') {
+    series.histogram = chart.addHistogramSeries({ color: '#26a69a', priceFormat: { type: 'price', precision: 4, minMove: 0.0001 } });
+    series.macdLine = chart.addLineSeries({ color: '#2962FF', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    series.signalLine = chart.addLineSeries({ color: '#FF6D00', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+  } else if (config.type === 'RSI') {
+    series.rsiLine = chart.addLineSeries({ color: '#9C27B0', lineWidth: 1, priceLineVisible: false, lastValueVisible: true });
+    series.rsiLine.createPriceLine({ price: 70, color: '#F6465D', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+    series.rsiLine.createPriceLine({ price: 30, color: '#0ECB81', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+  } else if (config.type === 'KDJ') {
+    series.kLine = chart.addLineSeries({ color: '#FCD535', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    series.dLine = chart.addLineSeries({ color: '#4BD4FF', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    series.jLine = chart.addLineSeries({ color: '#F6465D', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    series.kLine.createPriceLine({ price: 80, color: '#F6465D', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+    series.kLine.createPriceLine({ price: 20, color: '#0ECB81', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+  } else if (config.type === 'OBV') {
+    series.obvLine = chart.addLineSeries({ color: '#8C8CFF', lineWidth: 1, priceLineVisible: false, lastValueVisible: true });
+  } else if (config.type === 'WR') {
+    series.wrLine = chart.addLineSeries({ color: '#FFB86B', lineWidth: 1, priceLineVisible: false, lastValueVisible: true });
+    series.wrLine.createPriceLine({ price: -20, color: '#F6465D', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+    series.wrLine.createPriceLine({ price: -80, color: '#0ECB81', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+  }
 
       timeSyncRef.current.addSubchart(chart);
 
@@ -286,6 +298,14 @@ export function useChartGroup({
           subchart.series.histogram?.setData(indicators.macd.histogram);
         } else if (subchart.type === 'RSI') {
           subchart.series.rsiLine?.setData(indicators.rsi);
+        } else if (subchart.type === 'KDJ') {
+          subchart.series.kLine?.setData(indicators.kdj.kLine);
+          subchart.series.dLine?.setData(indicators.kdj.dLine);
+          subchart.series.jLine?.setData(indicators.kdj.jLine);
+        } else if (subchart.type === 'OBV') {
+          subchart.series.obvLine?.setData(indicators.obv);
+        } else if (subchart.type === 'WR') {
+          subchart.series.wrLine?.setData(indicators.wr);
         }
       }
       // 同步时间轴

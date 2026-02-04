@@ -40,7 +40,7 @@ export function SymbolSelector() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 hover:bg-bg-soft/60 px-2 h-7 rounded-sm transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
       >
-        <span className="font-heading text-lg font-bold text-text-primary group-hover:text-accent transition-colors">
+        <span className="font-heading text-base font-bold text-text-primary group-hover:text-accent transition-colors">
           {currentSymbol.baseAsset}/{currentSymbol.quoteAsset}
         </span>
         <svg

@@ -2,7 +2,7 @@
  * 技术指标类型定义
  */
 
-export type IndicatorType = 'MA' | 'EMA' | 'BOLL' | 'MACD' | 'RSI';
+export type IndicatorType = 'MA' | 'EMA' | 'BOLL' | 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR';
 export type IndicatorLayer = 'main' | 'sub';
 
 /**
@@ -54,6 +54,32 @@ export interface RsiResult {
 }
 
 /**
+ * KDJ 结果
+ */
+export interface KdjResult {
+  time: number;
+  k: number;
+  d: number;
+  j: number;
+}
+
+/**
+ * OBV 结果
+ */
+export interface ObvResult {
+  time: number;
+  value: number;
+}
+
+/**
+ * WR 结果
+ */
+export interface WrResult {
+  time: number;
+  value: number;
+}
+
+/**
  * 默认指标配置
  */
 export const DEFAULT_INDICATORS: IndicatorConfig[] = [
@@ -80,4 +106,11 @@ export const INDICATOR_COLORS = {
     histogramDown: '#F6465D',
   },
   RSI: '#9C27B0',
+  KDJ: {
+    k: '#FCD535',
+    d: '#4BD4FF',
+    j: '#F6465D',
+  },
+  OBV: '#8C8CFF',
+  WR: '#FFB86B',
 };

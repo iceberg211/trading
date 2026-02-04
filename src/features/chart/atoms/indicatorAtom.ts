@@ -11,6 +11,9 @@ import { calculateMA, calculateEMA } from '../utils/chartTransformers';
 import { calculateBOLL } from '../indicators/algorithms/boll';
 import { calculateMACD } from '../indicators/algorithms/macd';
 import { calculateRSI } from '../indicators/algorithms/rsi';
+import { calculateKDJ } from '../indicators/algorithms/kdj';
+import { calculateOBV } from '../indicators/algorithms/obv';
+import { calculateWR } from '../indicators/algorithms/wr';
 import type { LineData, Time, WhitespaceData, HistogramData } from 'lightweight-charts';
 
 // 指标配置
@@ -20,6 +23,8 @@ export const INDICATOR_CONFIG = {
   boll: { period: 20, stdDev: 2 },
   macd: { fast: 12, slow: 26, signal: 9 },
   rsi: { period: 14 },
+  kdj: { period: 9, kPeriod: 3, dPeriod: 3 },
+  wr: { period: 14 },
 } as const;
 
 // 指标数据类型
@@ -41,6 +46,13 @@ export interface IndicatorCache {
     histogram: Array<HistogramData | WhitespaceData>;
   };
   rsi: Array<LineData | WhitespaceData>;
+  kdj: {
+    kLine: Array<LineData | WhitespaceData>;
+    dLine: Array<LineData | WhitespaceData>;
+    jLine: Array<LineData | WhitespaceData>;
+  };
+  obv: Array<LineData | WhitespaceData>;
+  wr: Array<LineData | WhitespaceData>;
 }
 
 /**
@@ -80,6 +92,14 @@ export const indicatorCacheAtom = atom<IndicatorCache | null>((get) => {
   
   // RSI 计算
   const rsiRaw = calculateRSI(klineData, INDICATOR_CONFIG.rsi.period);
+  const kdjRaw = calculateKDJ(
+    klineData,
+    INDICATOR_CONFIG.kdj.period,
+    INDICATOR_CONFIG.kdj.kPeriod,
+    INDICATOR_CONFIG.kdj.dPeriod
+  );
+  const obvRaw = calculateOBV(klineData);
+  const wrRaw = calculateWR(klineData, INDICATOR_CONFIG.wr.period);
 
   const times: Time[] = klineData.map((d) => d.time as Time);
 
@@ -137,6 +157,16 @@ export const indicatorCacheAtom = atom<IndicatorCache | null>((get) => {
     
     // RSI 副图
     rsi: alignLineSeries(rsiRaw.map((d) => ({ time: d.time, value: d.value }))),
+    // KDJ 副图
+    kdj: {
+      kLine: alignLineSeries(kdjRaw.map((d) => ({ time: d.time, value: d.k }))),
+      dLine: alignLineSeries(kdjRaw.map((d) => ({ time: d.time, value: d.d }))),
+      jLine: alignLineSeries(kdjRaw.map((d) => ({ time: d.time, value: d.j }))),
+    },
+    // OBV 副图
+    obv: alignLineSeries(obvRaw.map((d) => ({ time: d.time, value: d.value }))),
+    // WR 副图
+    wr: alignLineSeries(wrRaw.map((d) => ({ time: d.time, value: d.value }))),
   };
 });
 
