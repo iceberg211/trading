@@ -91,7 +91,7 @@ export function DrawingDropdown({
   const currentTool = TOOLS.find((t) => t.type === activeTool);
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className="relative flex items-center gap-2">
       {/* 主按钮 */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -118,7 +118,7 @@ export function DrawingDropdown({
 
       {/* 绘制状态提示 */}
       {activeTool && (
-        <span className="absolute -bottom-4 left-0 text-[10px] text-accent whitespace-nowrap animate-pulse">
+        <span className="hidden md:inline text-[10px] text-accent whitespace-nowrap">
           {pendingPoint ? '点击第二点' : getToolHint(activeTool)}
         </span>
       )}

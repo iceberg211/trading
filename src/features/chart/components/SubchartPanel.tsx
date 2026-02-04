@@ -14,7 +14,7 @@ interface SubchartPanelProps {
   onRemove: (slotId: string) => void;
 }
 
-const SUBCHART_HEIGHT = 160;
+const SUBCHART_HEIGHT = 120;
 
 export function SubchartPanel({ slotId, type, onSetContainer, onRemove }: SubchartPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -43,14 +43,14 @@ export function SubchartPanel({ slotId, type, onSetContainer, onRemove }: Subcha
 
   return (
     <div className="border-t border-line-dark">
-      <div className="flex items-center justify-between px-3 py-0.5 bg-bg-soft text-[10px]">
-        <span className="text-text-secondary font-medium">{type}</span>
+      <div className="flex items-center justify-between px-3 py-1 bg-bg-panel/70">
+        <span className="text-text-primary text-[11px] font-semibold tracking-wide">{type}</span>
         <button
           onClick={() => onRemove(slotId)}
-          className="text-text-tertiary hover:text-text-primary transition-colors"
+          className="text-text-secondary hover:text-text-primary transition-colors text-[12px] font-semibold"
           aria-label={`关闭 ${type}`}
         >
-          ✕
+          关闭
         </button>
       </div>
       <div ref={containerRef} style={{ height: SUBCHART_HEIGHT }} />

@@ -19,7 +19,7 @@ interface ChartToolbarProps {
   showMA: boolean;
   showEMA: boolean;
   showBOLL: boolean;
-  subchartType: 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR' | null;
+  activeSubchartTypes: Array<'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR'>;
   onChangeChartType: (type: 'candles' | 'line') => void;
   onToggleVolume: () => void;
   onToggleMA: () => void;
@@ -36,7 +36,7 @@ export function ChartToolbar({
   showMA,
   showEMA,
   showBOLL,
-  subchartType,
+  activeSubchartTypes,
   onChangeChartType,
   onToggleVolume,
   onToggleMA,
@@ -51,12 +51,12 @@ export function ChartToolbar({
   const isTradingView = chartView === 'tradingview';
 
   const btnBase =
-    'h-7 px-2 text-xxs font-medium rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35';
+    'h-7 px-2 text-xxs font-medium rounded-sm transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35';
 
   return (
-    <div className="flex items-center justify-between gap-2 w-full">
+    <div className="flex items-center gap-2 w-full min-w-0">
       <div className="flex items-center gap-2 min-w-0">
-        <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-thin pr-1">
+        <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-thin pr-1 shrink-0">
           {intervals.map((interval) => (
             <button
               key={interval.value}
@@ -74,8 +74,8 @@ export function ChartToolbar({
             </button>
           ))}
         </div>
-      
-        <div className="hidden md:block h-4 w-px bg-line-dark" />
+
+        <div className="hidden md:block h-4 w-px bg-line-dark shrink-0" />
 
         <SegmentedControl
           value={chartView}
@@ -88,20 +88,20 @@ export function ChartToolbar({
 
         {!isTradingView && (
           <>
-            <div className="hidden lg:block h-4 w-px bg-line-dark" />
+            <div className="hidden lg:block h-4 w-px bg-line-dark shrink-0" />
 
-            <SegmentedControl
-              value={chartType}
-              onChange={onChangeChartType}
-              options={[
-                { value: 'candles', label: '蜡烛' },
-                { value: 'line', label: '折线' },
-              ]}
-            />
+            <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto scrollbar-thin pr-1">
+              <SegmentedControl
+                value={chartType}
+                onChange={onChangeChartType}
+                options={[
+                  { value: 'candles', label: '蜡烛' },
+                  { value: 'line', label: '折线' },
+                ]}
+              />
 
-            <div className="hidden lg:block h-4 w-px bg-line-dark" />
+              <div className="hidden lg:block h-4 w-px bg-line-dark mx-1 shrink-0" />
 
-            <div className="flex items-center gap-0.5">
               <button
                 onClick={onToggleVolume}
                 className={`${btnBase} ${
@@ -142,14 +142,14 @@ export function ChartToolbar({
               >
                 布林
               </button>
-            </div>
 
-            {/* 副图指标 */}
-            <div className="flex items-center gap-0.5">
+              <div className="hidden lg:block h-4 w-px bg-line-dark mx-1 shrink-0" />
+
+              {/* 副图指标 */}
               <button
                 onClick={() => onSelectSubchart('MACD')}
                 className={`${btnBase} ${
-                  subchartType === 'MACD'
+                  activeSubchartTypes.includes('MACD')
                     ? 'text-text-primary bg-bg-soft'
                     : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
                 }`}
@@ -159,7 +159,7 @@ export function ChartToolbar({
               <button
                 onClick={() => onSelectSubchart('RSI')}
                 className={`${btnBase} ${
-                  subchartType === 'RSI'
+                  activeSubchartTypes.includes('RSI')
                     ? 'text-text-primary bg-bg-soft'
                     : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
                 }`}
@@ -169,7 +169,7 @@ export function ChartToolbar({
               <button
                 onClick={() => onSelectSubchart('KDJ')}
                 className={`${btnBase} ${
-                  subchartType === 'KDJ'
+                  activeSubchartTypes.includes('KDJ')
                     ? 'text-text-primary bg-bg-soft'
                     : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
                 }`}
@@ -179,7 +179,7 @@ export function ChartToolbar({
               <button
                 onClick={() => onSelectSubchart('OBV')}
                 className={`${btnBase} ${
-                  subchartType === 'OBV'
+                  activeSubchartTypes.includes('OBV')
                     ? 'text-text-primary bg-bg-soft'
                     : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
                 }`}
@@ -189,7 +189,7 @@ export function ChartToolbar({
               <button
                 onClick={() => onSelectSubchart('WR')}
                 className={`${btnBase} ${
-                  subchartType === 'WR'
+                  activeSubchartTypes.includes('WR')
                     ? 'text-text-primary bg-bg-soft'
                     : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
                 }`}

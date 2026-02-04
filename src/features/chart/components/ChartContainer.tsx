@@ -2,7 +2,7 @@ import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 import { useKlineData } from '../hooks/useKlineData';
 import { useChartGroup, SubchartConfig } from '../hooks/useChartGroup';
-import { useSubchartSlots, SubchartType } from '../hooks/useSubchartSlots';
+import { useSubchartSlots, SubchartType, MAX_SUBCHART_SLOTS } from '../hooks/useSubchartSlots';
 import { useChartScroll } from '../hooks/useChartScroll';
 import { useDrawingManager, useDrawingTools, DrawingDropdown } from '../drawing';
 import { ChartToolbar } from './ChartToolbar';
@@ -31,6 +31,7 @@ function BasicChartView() {
     slots: subchartSlots,
     activeSlots,
     setSlotContainer,
+    setSlotType,
     addSubchart,
     removeSubchart,
   } = useSubchartSlots();
@@ -87,10 +88,31 @@ function BasicChartView() {
     setContainerEl(node);
   }, []);
 
+  const [replacePickerOpen, setReplacePickerOpen] = useState(false);
+  const [pendingSubchartType, setPendingSubchartType] = useState<Exclude<SubchartType, null> | null>(null);
+
   // 副图切换
   const handleSubchartToggle = useCallback((type: SubchartType) => {
-    addSubchart(type);
-  }, [addSubchart]);
+    if (!type) return;
+    const isActive = activeSlots.some((slot) => slot.type === type);
+    if (isActive) {
+      addSubchart(type);
+      return;
+    }
+    if (activeSlots.length < MAX_SUBCHART_SLOTS) {
+      addSubchart(type);
+      return;
+    }
+    setPendingSubchartType(type);
+    setReplacePickerOpen(true);
+  }, [activeSlots, addSubchart]);
+
+  const handleReplaceSubchart = useCallback((slotId: string) => {
+    if (!pendingSubchartType) return;
+    setSlotType(slotId, pendingSubchartType);
+    setPendingSubchartType(null);
+    setReplacePickerOpen(false);
+  }, [pendingSubchartType, setSlotType]);
 
   // 工具栏 Toggle Handlers
   const handleToggleVolume = useCallback(() => setShowVolume((v) => !v), []);
@@ -99,45 +121,82 @@ function BasicChartView() {
   const handleToggleBOLL = useCallback(() => setShowBOLL((v) => !v), []);
 
   // 获取当前激活的副图类型（用于工具栏高亮）
-  const activeSubchartType: 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR' | null = useMemo(() => {
-    const first = activeSlots[0]?.type ?? null;
-    if (!first) return null;
-    if (first === 'MACD' || first === 'RSI' || first === 'KDJ' || first === 'OBV' || first === 'WR') {
-      return first;
-    }
-    return null;
-  }, [activeSlots]);
+  const activeSubchartTypes = useMemo(
+    () =>
+      activeSlots
+        .map((slot) => slot.type)
+        .filter((type): type is 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR' =>
+          Boolean(type)
+        ),
+    [activeSlots]
+  );
 
   return (
     <>
       {/* 工具栏 */}
-      <div className="border-b border-line-dark px-2 h-8 bg-bg-panel flex items-center justify-between gap-2">
-        <ChartToolbar
-          chartType={chartType}
-          showVolume={showVolume}
-          showMA={showMA}
-          showEMA={showEMA}
-          showBOLL={showBOLL}
-          subchartType={activeSubchartType}
-          onChangeChartType={setChartType}
-          onToggleVolume={handleToggleVolume}
-          onToggleMA={handleToggleMA}
-          onToggleEMA={handleToggleEMA}
-          onToggleBOLL={handleToggleBOLL}
-          onSelectSubchart={handleSubchartToggle}
-          onResetScale={resetScale}
-          onGoToLatest={goToLatest}
-        />
+      <div className="border-b border-line-dark px-2 h-8 bg-bg-panel flex items-center justify-between gap-2 relative">
+        <div className="flex items-center gap-2 w-full min-w-0">
+          <div className="min-w-0 flex-1">
+            <ChartToolbar
+              chartType={chartType}
+              showVolume={showVolume}
+              showMA={showMA}
+              showEMA={showEMA}
+              showBOLL={showBOLL}
+              activeSubchartTypes={activeSubchartTypes}
+              onChangeChartType={setChartType}
+              onToggleVolume={handleToggleVolume}
+              onToggleMA={handleToggleMA}
+              onToggleEMA={handleToggleEMA}
+              onToggleBOLL={handleToggleBOLL}
+              onSelectSubchart={handleSubchartToggle}
+              onResetScale={resetScale}
+              onGoToLatest={goToLatest}
+            />
+          </div>
 
-        {/* 画线工具下拉菜单 */}
-        <DrawingDropdown
-          activeTool={activeTool}
-          onSelectTool={setActiveTool}
-          onClearAll={clearAll}
-          onRemoveLast={removeLast}
-          drawingsCount={drawingsCount}
-          pendingPoint={pendingPoint !== null}
-        />
+          {/* 画线工具下拉菜单 */}
+          <div className="shrink-0">
+            <DrawingDropdown
+              activeTool={activeTool}
+              onSelectTool={setActiveTool}
+              onClearAll={clearAll}
+              onRemoveLast={removeLast}
+              drawingsCount={drawingsCount}
+              pendingPoint={pendingPoint !== null}
+            />
+          </div>
+        </div>
+
+        {replacePickerOpen && pendingSubchartType && (
+          <div className="absolute right-2 top-full mt-1 w-44 bg-bg-card border border-line-dark rounded-panel shadow-xl z-tooltip overflow-hidden">
+            <div className="px-3 py-2 text-[11px] text-text-secondary border-b border-line-dark bg-bg-panel/70">
+              已满，选择替换
+            </div>
+            <div className="py-1">
+              {activeSlots.map((slot) => (
+                <button
+                  key={slot.id}
+                  onClick={() => handleReplaceSubchart(slot.id)}
+                  className="w-full flex items-center justify-between px-3 h-8 text-xs text-text-secondary hover:bg-bg-soft/60 hover:text-text-primary transition-colors"
+                >
+                  <span>{slot.type}</span>
+                  <span className="text-[10px] text-text-tertiary">替换</span>
+                </button>
+              ))}
+            </div>
+            <div className="h-px bg-line-dark" />
+            <button
+              onClick={() => {
+                setReplacePickerOpen(false);
+                setPendingSubchartType(null);
+              }}
+              className="w-full px-3 h-8 text-xs text-text-tertiary hover:text-text-primary hover:bg-bg-soft/60 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        )}
       </div>
 
       {/* OHLCV 悬浮信息 - 固定高度避免图表抖动 */}
@@ -146,27 +205,56 @@ function BasicChartView() {
       </div>
 
       {/* 状态栏 */}
-      <ChartStatusBar
-        wsStatus={wsStatus}
-        loading={loading}
-        loadingMore={loadingMore}
-        hasMore={hasMore}
-        error={error}
-      />
+      {loading && klineData.length === 0 ? (
+        <div className="px-3 py-1 bg-bg-panel border-b border-line-dark">
+          <div className="h-3 w-48 bg-bg-soft/60 rounded-sm animate-pulse" />
+        </div>
+      ) : (
+        <ChartStatusBar
+          wsStatus={wsStatus}
+          loading={loading}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          error={error}
+        />
+      )}
 
       {/* 主图表 */}
-      <div ref={setContainerRef} className={`min-h-0 ${activeSlots.length > 0 ? 'flex-[3]' : 'flex-1'}`} />
+      <div className={`relative min-h-[300px] ${activeSlots.length > 0 ? 'flex-[3]' : 'flex-1'}`}>
+        <div ref={setContainerRef} className="absolute inset-0" />
+        {loading && klineData.length === 0 && (
+          <div className="absolute inset-0 bg-bg-card">
+            <div className="h-full w-full animate-pulse">
+              <div className="h-full w-full bg-gradient-to-br from-bg-soft/40 via-bg-soft/10 to-bg-soft/40" />
+              <div className="absolute left-3 top-3 h-3 w-32 bg-bg-soft/60 rounded-sm" />
+              <div className="absolute left-3 top-8 h-3 w-40 bg-bg-soft/60 rounded-sm" />
+              <div className="absolute bottom-4 left-3 h-3 w-24 bg-bg-soft/60 rounded-sm" />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 副图区域 (最多3个) */}
-      {subchartSlots.map((slot) => (
-        <SubchartPanel
-          key={slot.id}
-          slotId={slot.id}
-          type={slot.type}
-          onSetContainer={setSlotContainer}
-          onRemove={removeSubchart}
-        />
-      ))}
+      {subchartSlots.map((slot) =>
+        loading && klineData.length === 0 ? (
+          <div key={slot.id} className="border-t border-line-dark">
+            <div className="flex items-center justify-between px-3 py-0.5 bg-bg-soft text-[10px]">
+              <span className="text-text-tertiary">加载中…</span>
+            </div>
+            <div className="h-[160px] bg-bg-card">
+              <div className="h-full w-full animate-pulse bg-gradient-to-br from-bg-soft/30 via-bg-soft/10 to-bg-soft/30" />
+            </div>
+          </div>
+        ) : (
+          <SubchartPanel
+            key={slot.id}
+            slotId={slot.id}
+            type={slot.type}
+            onSetContainer={setSlotContainer}
+            onRemove={removeSubchart}
+          />
+        )
+      )}
     </>
   );
 }
@@ -184,7 +272,7 @@ function TradingViewChartView() {
           showMA={false}
           showEMA={false}
           showBOLL={false}
-          subchartType={null}
+          activeSubchartTypes={[]}
           onChangeChartType={noop}
           onToggleVolume={noop}
           onToggleMA={noop}

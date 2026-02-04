@@ -93,6 +93,7 @@ export function OrderBook() {
   const [viewMode, setViewMode] = useState<ViewMode>('book');
   const contentRef = useRef<HTMLDivElement>(null);
   const spreadRef = useRef<HTMLDivElement>(null);
+  const ratioRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(160);
 
   // Tooltip State
@@ -141,6 +142,33 @@ export function OrderBook() {
     return Math.max(maxBid, maxAsk);
   }, [bids, asks]);
 
+  const buySellRatio = useMemo(() => {
+    const bidTotal = bids.reduce((sum, item) => sum.plus(item.qty), new Decimal(0));
+    const askTotal = asks.reduce((sum, item) => sum.plus(item.qty), new Decimal(0));
+    const total = bidTotal.plus(askTotal);
+
+    if (total.isZero()) {
+      return {
+        buyRatio: 0,
+        sellRatio: 0,
+        bidTotal,
+        askTotal,
+        total
+      };
+    }
+
+    const buyRatio = bidTotal.div(total).mul(100).toNumber();
+    const sellRatio = 100 - buyRatio;
+
+    return {
+      buyRatio,
+      sellRatio,
+      bidTotal,
+      askTotal,
+      total
+    };
+  }, [bids, asks]);
+
 
   // 根据内容区域高度动态计算列表高度
   useLayoutEffect(() => {
@@ -148,7 +176,8 @@ export function OrderBook() {
       if (!contentRef.current || !spreadRef.current) return;
       const totalHeight = contentRef.current.clientHeight;
       const spreadHeight = spreadRef.current.clientHeight;
-      const eachHeight = Math.max(Math.floor((totalHeight - spreadHeight) / 2), 1);
+      const ratioHeight = ratioRef.current ? ratioRef.current.clientHeight : 0;
+      const eachHeight = Math.max(Math.floor((totalHeight - spreadHeight - ratioHeight) / 2), 1);
       setListHeight(eachHeight);
     };
 
@@ -161,6 +190,7 @@ export function OrderBook() {
     const observer = new ResizeObserver(updateHeights);
     if (contentRef.current) observer.observe(contentRef.current);
     if (spreadRef.current) observer.observe(spreadRef.current);
+    if (ratioRef.current) observer.observe(ratioRef.current);
 
     return () => observer.disconnect();
   }, [viewMode]);
@@ -322,6 +352,29 @@ export function OrderBook() {
                   <OrderRow style={style} data={data} index={index} />
                 )}
               </List>
+            </div>
+
+            {/* Buy/Sell Ratio */}
+            <div ref={ratioRef} className="h-9 border-t border-line-dark bg-bg-panel px-3 flex items-center justify-between gap-3 text-xxs text-text-tertiary">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-up font-medium">买</span>
+                <span className="text-text-primary font-mono tabular-nums">
+                  {buySellRatio.total.isZero() ? '--' : `${buySellRatio.buyRatio.toFixed(1)}%`}
+                </span>
+                <span className="text-text-tertiary">/</span>
+                <span className="text-down font-medium">卖</span>
+                <span className="text-text-primary font-mono tabular-nums">
+                  {buySellRatio.total.isZero() ? '--' : `${buySellRatio.sellRatio.toFixed(1)}%`}
+                </span>
+              </div>
+              <div className="flex flex-1 h-2 rounded-full overflow-hidden bg-bg-soft/70 border border-line-dark">
+                <div className="h-full bg-up" style={{ width: `${buySellRatio.buyRatio}%` }} />
+                <div className="h-full bg-down" style={{ width: `${buySellRatio.sellRatio}%` }} />
+              </div>
+              <div className="flex items-center gap-3 text-text-tertiary font-mono tabular-nums">
+                <span>买量 {buySellRatio.bidTotal.toFixed(qtyPrecision)}</span>
+                <span>卖量 {buySellRatio.askTotal.toFixed(qtyPrecision)}</span>
+              </div>
             </div>
           </div>
         </>
