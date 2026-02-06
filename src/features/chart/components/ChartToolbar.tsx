@@ -1,6 +1,8 @@
 import { useAtom } from 'jotai';
 import { intervalAtom } from '../atoms/klineAtom';
+import { chartViewAtom } from '../atoms/chartViewAtom';
 import type { KlineInterval } from '@/types/binance';
+import { SegmentedControl } from '@/components/ui';
 
 const intervals: { value: KlineInterval; label: string }[] = [
   { value: '1m', label: '1分钟' },
@@ -17,13 +19,13 @@ interface ChartToolbarProps {
   showMA: boolean;
   showEMA: boolean;
   showBOLL: boolean;
-  subchartType: 'MACD' | 'RSI' | null;
+  activeSubchartTypes: Array<'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR'>;
   onChangeChartType: (type: 'candles' | 'line') => void;
   onToggleVolume: () => void;
   onToggleMA: () => void;
   onToggleEMA: () => void;
   onToggleBOLL: () => void;
-  onSelectSubchart: (type: 'MACD' | 'RSI' | null) => void;
+  onSelectSubchart: (type: 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR' | null) => void;
   onResetScale: () => void;
   onGoToLatest: () => void;
 }
@@ -34,7 +36,7 @@ export function ChartToolbar({
   showMA,
   showEMA,
   showBOLL,
-  subchartType,
+  activeSubchartTypes,
   onChangeChartType,
   onToggleVolume,
   onToggleMA,
@@ -45,138 +47,176 @@ export function ChartToolbar({
   onGoToLatest,
 }: ChartToolbarProps) {
   const [currentInterval, setCurrentInterval] = useAtom(intervalAtom);
+  const [chartView, setChartView] = useAtom(chartViewAtom);
+  const isTradingView = chartView === 'tradingview';
+
+  const btnBase =
+    'h-7 px-2 text-xxs font-medium rounded-sm transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35';
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1">
-        {intervals.map((interval) => (
-          <button
-            key={interval.value}
-            onClick={() => setCurrentInterval(interval.value)}
-            className={`
-              px-2 py-1 text-xs font-medium rounded transition-colors
-              ${
-                currentInterval === interval.value
-                  ? 'text-text-primary bg-bg-soft'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-              }
-            `}
-          >
-            {interval.label}
-          </button>
-        ))}
-      </div>
-      
-      <div className="h-4 w-px bg-line-dark" />
-      
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onChangeChartType('candles')}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            chartType === 'candles'
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          蜡烛
-        </button>
-        <button
-          onClick={() => onChangeChartType('line')}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            chartType === 'line'
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          折线
-        </button>
-      </div>
-      
-      <div className="h-4 w-px bg-line-dark" />
-      
-      <div className="flex items-center gap-1">
-        <button
-          onClick={onToggleVolume}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            showVolume
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          VOL
-        </button>
-        <button
-          onClick={onToggleMA}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            showMA
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          MA
-        </button>
-        <button
-          onClick={onToggleEMA}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            showEMA
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          EMA
-        </button>
-        <button
-          onClick={onToggleBOLL}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            showBOLL
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          BOLL
-        </button>
-      </div>
-      
+    <div className="flex items-center gap-2 w-full min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-thin pr-1 shrink-0">
+          {intervals.map((interval) => (
+            <button
+              key={interval.value}
+              onClick={() => setCurrentInterval(interval.value)}
+              className={`
+                ${btnBase} shrink-0
+                ${
+                  currentInterval === interval.value
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }
+              `}
+            >
+              {interval.label}
+            </button>
+          ))}
+        </div>
 
-      
-      {/* 副图指标 */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onSelectSubchart('MACD')}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            subchartType === 'MACD'
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          MACD
-        </button>
-        <button
-          onClick={() => onSelectSubchart('RSI')}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            subchartType === 'RSI'
-              ? 'text-text-primary bg-bg-soft'
-              : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
-          }`}
-        >
-          RSI
-        </button>
+        <div className="hidden md:block h-4 w-px bg-line-dark shrink-0" />
+
+        <SegmentedControl
+          value={chartView}
+          onChange={setChartView}
+          options={[
+            { value: 'basic', label: '基础图表' },
+            { value: 'tradingview', label: 'TradingView' },
+          ]}
+        />
+
+        {!isTradingView && (
+          <>
+            <div className="hidden lg:block h-4 w-px bg-line-dark shrink-0" />
+
+            <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto scrollbar-thin pr-1">
+              <SegmentedControl
+                value={chartType}
+                onChange={onChangeChartType}
+                options={[
+                  { value: 'candles', label: '蜡烛' },
+                  { value: 'line', label: '折线' },
+                ]}
+              />
+
+              <div className="hidden lg:block h-4 w-px bg-line-dark mx-1 shrink-0" />
+
+              <button
+                onClick={onToggleVolume}
+                className={`${btnBase} ${
+                  showVolume
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                成交量
+              </button>
+              <button
+                onClick={onToggleMA}
+                className={`${btnBase} ${
+                  showMA
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                均线
+              </button>
+              <button
+                onClick={onToggleEMA}
+                className={`${btnBase} ${
+                  showEMA
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                EMA
+              </button>
+              <button
+                onClick={onToggleBOLL}
+                className={`${btnBase} ${
+                  showBOLL
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                布林
+              </button>
+
+              <div className="hidden lg:block h-4 w-px bg-line-dark mx-1 shrink-0" />
+
+              {/* 副图指标 */}
+              <button
+                onClick={() => onSelectSubchart('MACD')}
+                className={`${btnBase} ${
+                  activeSubchartTypes.includes('MACD')
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                MACD
+              </button>
+              <button
+                onClick={() => onSelectSubchart('RSI')}
+                className={`${btnBase} ${
+                  activeSubchartTypes.includes('RSI')
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                RSI
+              </button>
+              <button
+                onClick={() => onSelectSubchart('KDJ')}
+                className={`${btnBase} ${
+                  activeSubchartTypes.includes('KDJ')
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                KDJ
+              </button>
+              <button
+                onClick={() => onSelectSubchart('OBV')}
+                className={`${btnBase} ${
+                  activeSubchartTypes.includes('OBV')
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                OBV
+              </button>
+              <button
+                onClick={() => onSelectSubchart('WR')}
+                className={`${btnBase} ${
+                  activeSubchartTypes.includes('WR')
+                    ? 'text-text-primary bg-bg-soft'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-soft/60'
+                }`}
+              >
+                WR
+              </button>
+            </div>
+          </>
+        )}
       </div>
-      
-      <div className="ml-auto flex items-center gap-1">
-        <button
-          onClick={onResetScale}
-          className="px-2 py-1 text-xs rounded text-text-secondary hover:text-text-primary hover:bg-bg-soft/60 transition-colors"
-        >
-          重置
-        </button>
-        <button
-          onClick={onGoToLatest}
-          className="px-2 py-1 text-xs rounded text-text-secondary hover:text-text-primary hover:bg-bg-soft/60 transition-colors"
-        >
-          最新
-        </button>
-      </div>
+
+      {!isTradingView && (
+        <div className="shrink-0 flex items-center gap-0.5">
+          <button
+            onClick={onResetScale}
+            className={`${btnBase} text-text-secondary hover:text-text-primary hover:bg-bg-soft/60`}
+          >
+            重置
+          </button>
+          <button
+            onClick={onGoToLatest}
+            className={`${btnBase} text-text-secondary hover:text-text-primary hover:bg-bg-soft/60`}
+          >
+            最新
+          </button>
+        </div>
+      )}
     </div>
   );
 }

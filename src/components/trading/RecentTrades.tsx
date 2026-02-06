@@ -5,6 +5,7 @@ import { symbolAtom } from '@/features/chart/atoms/klineAtom';
 import { marketDataHub } from '@/core/gateway';
 import { runtimeConfig } from '@/core/config/runtime';
 import { formatPrice, formatQuantity } from '@/utils/decimal';
+import { ConnectionStatus, type ConnectionState } from '@/components/ui/ConnectionStatus';
 import dayjs from 'dayjs';
 
 interface TradeItem {
@@ -35,7 +36,7 @@ const TradeRow = memo(function TradeRow({
   return (
     <div
       style={style}
-      className="grid grid-cols-3 gap-2 px-3 text-xs hover:bg-bg-soft/50 transition-colors items-center"
+      className="grid grid-cols-3 gap-2 px-3 text-xs leading-5 hover:bg-bg-soft/60 transition-colors items-center tabular-nums"
     >
       <span className={`font-mono ${trade.isBuyerMaker ? 'text-down' : 'text-up'}`}>
         {formatPrice(trade.price, pricePrecision)}
@@ -58,6 +59,7 @@ export function RecentTrades() {
   const symbol = useAtomValue(symbolAtom);
   const [trades, setTrades] = useState<TradeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wsStatus, setWsStatus] = useState<ConnectionState>('disconnected');
   const containerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(200);
   const initializedRef = useRef(false);
@@ -147,10 +149,16 @@ export function RecentTrades() {
     // 通过 MarketDataHub 订阅实时数据
     const unsubscribe = marketDataHub.subscribe('trade', symbol);
     const unregister = marketDataHub.onMessage('trade', handleWsMessage);
+    
+    // 监听 WebSocket 连接状态
+    const unregisterStatus = marketDataHub.onStatusChange((status) => {
+      setWsStatus(status as ConnectionState);
+    });
 
     return () => {
       unsubscribe();
       unregister();
+      unregisterStatus();
     };
   }, [symbol, handleWsMessage, loadHistoricalTrades]);
 
@@ -181,18 +189,18 @@ export function RecentTrades() {
   const qtyPrecision = 4;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-bg-card/90 backdrop-blur">
+    <div className="flex flex-col h-full min-h-0 bg-bg-card">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-line-dark flex justify-between items-center bg-bg-soft/70">
-        <span className="text-[11px] uppercase tracking-[0.14em] text-text-tertiary">Trades</span>
-        <div className={`w-1.5 h-1.5 rounded-full ${loading ? 'bg-yellow-400' : 'bg-up'} animate-pulse`} />
+      <div className="px-3 h-8 border-b border-line-dark flex justify-between items-center bg-bg-panel">
+        <span className="text-xs font-heading font-medium text-text-primary">最近成交</span>
+        <ConnectionStatus status={loading ? 'syncing' : wsStatus} variant="badge" />
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-3 gap-2 px-3 py-1 text-[10px] font-medium text-text-tertiary uppercase tracking-[0.14em] bg-bg-panel/60 border-b border-line-dark">
-        <span>Price({quoteAsset})</span>
-        <span className="text-right">Amount({baseAsset})</span>
-        <span className="text-right">Time</span>
+      <div className="grid grid-cols-3 gap-2 px-3 h-7 items-center text-xxs font-medium text-text-tertiary bg-bg-card border-b border-line-dark">
+        <span>价格({quoteAsset})</span>
+        <span className="text-right">数量({baseAsset})</span>
+        <span className="text-right">时间</span>
       </div>
 
       {/* Trade List - Virtual */}
@@ -201,12 +209,12 @@ export function RecentTrades() {
           <div className="flex items-center justify-center h-full text-text-tertiary text-xs">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-              Loading trades...
+              正在加载成交…
             </div>
           </div>
         ) : trades.length === 0 ? (
           <div className="flex items-center justify-center h-full text-text-tertiary text-xs">
-            Waiting for trades...
+            暂无成交数据
           </div>
         ) : (
           <List

@@ -1,189 +1,327 @@
 /**
- * 订单簿数据处理 Web Worker
- * 用于在后台线程处理订单簿增量合并，避免阻塞主线程
- * 
- * 增强版本：使用 Decimal.js 确保精度一致性
+ * OrderBook Engine Worker
+ *
+ * - No networking in worker. Main thread feeds: snapshot + depth deltas.
+ * - Implements Binance diff-depth sync protocol (snapshot + buffered deltas + strict continuity).
+ * - Emits throttled, sorted view model (bids desc, asks asc).
  */
 
-// Worker 中无法直接导入 npm 包，使用原生 BigInt 或字符串比较
-// 对于价格排序，字符串比较足够精确（Binance API 返回的价格格式一致）
+import type {
+  DepthDelta,
+  EngineSyncStatus,
+  MainToWorkerMessage,
+  OrderBookItem,
+  OrderBookSnapshot,
+  WorkerToMainMessage,
+} from './orderbookEngine.types';
 
-type OrderBookItem = [string, string];
+type SideMap = Map<string, string>; // price -> quantity
 
-interface MergeMessage {
-  type: 'merge';
-  payload: {
-    currentBids: OrderBookItem[];
-    currentAsks: OrderBookItem[];
-    updateBids: OrderBookItem[];
-    updateAsks: OrderBookItem[];
-    limit: number;
-  };
+const CONFIG = {
+  EMIT_THROTTLE_MS: 80,
+  OUTPUT_LIMIT: 500,
+  // Keep buffer bounded to avoid unbounded growth on flaky networks.
+  MAX_BUFFER_SIZE: 5000,
+};
+
+type WorkerState = {
+  symbol: string | null;
+  syncStatus: EngineSyncStatus;
+  lastUpdateId: number;
+  bids: SideMap;
+  asks: SideMap;
+  buffer: DepthDelta[];
+  dirty: boolean;
+  lastEmitTime: number;
+};
+
+const state: WorkerState = {
+  symbol: null,
+  syncStatus: 'uninitialized',
+  lastUpdateId: 0,
+  bids: new Map(),
+  asks: new Map(),
+  buffer: [],
+  dirty: false,
+  lastEmitTime: 0,
+};
+
+function post(msg: WorkerToMainMessage) {
+  postMessage(msg);
 }
 
-interface SortMessage {
-  type: 'sort';
-  payload: {
-    data: OrderBookItem[];
-    isBids: boolean;
-    limit: number;
-  };
+function emitStatus() {
+  if (!state.symbol) return;
+  post({
+    type: 'STATUS',
+    payload: {
+      symbol: state.symbol,
+      syncStatus: state.syncStatus,
+      bufferSize: state.buffer.length,
+      lastUpdateId: state.lastUpdateId,
+    },
+  });
 }
 
-interface CalculateStatsMessage {
-  type: 'calculate_stats';
-  payload: {
-    bids: OrderBookItem[];
-    asks: OrderBookItem[];
-    levels: number;
-  };
+function setSyncStatus(next: EngineSyncStatus) {
+  if (state.syncStatus === next) return;
+  state.syncStatus = next;
+  emitStatus();
 }
 
-type WorkerMessage = MergeMessage | SortMessage | CalculateStatsMessage;
+function normalizeSymbol(sym: string) {
+  return sym.toUpperCase();
+}
 
-/**
- * 精确比较两个价格字符串
- * 避免浮点数精度问题
- */
 function comparePrices(a: string, b: string): number {
-  // 标准化为相同小数位数后比较
   const [aInt, aDec = ''] = a.split('.');
   const [bInt, bDec = ''] = b.split('.');
-  
-  // 先比较整数部分
+
   const aIntNum = parseInt(aInt, 10);
   const bIntNum = parseInt(bInt, 10);
-  if (aIntNum !== bIntNum) {
-    return aIntNum - bIntNum;
-  }
-  
-  // 整数部分相等，比较小数部分
+  if (aIntNum !== bIntNum) return aIntNum - bIntNum;
+
   const maxDecLen = Math.max(aDec.length, bDec.length);
   const aDecPadded = aDec.padEnd(maxDecLen, '0');
   const bDecPadded = bDec.padEnd(maxDecLen, '0');
-  
-  const aDecNum = parseInt(aDecPadded, 10) || 0;
-  const bDecNum = parseInt(bDecPadded, 10) || 0;
-  
-  return aDecNum - bDecNum;
+
+  return (parseInt(aDecPadded, 10) || 0) - (parseInt(bDecPadded, 10) || 0);
 }
 
-/**
- * 合并深度数据
- * 使用 Map 进行高效合并
- */
-function mergeDepth(
-  currentList: OrderBookItem[],
-  updates: OrderBookItem[],
-  isBids: boolean
-): OrderBookItem[] {
-  const map = new Map<string, string>();
-  
-  // 添加当前数据
-  for (const [price, qty] of currentList) {
-    map.set(price, qty);
-  }
-
-  // 应用更新
+function mergeUpdates(map: SideMap, updates: OrderBookItem[]) {
   for (const [price, qty] of updates) {
-    // 数量为 0 表示删除该价位
-    if (qty === '0' || qty === '0.00000000') {
+    // qty = 0 means remove level
+    if (qty === '0' || qty === '0.00000000' || parseFloat(qty) === 0) {
       map.delete(price);
     } else {
       map.set(price, qty);
     }
   }
+}
 
-  // 转换为数组并排序
-  const entries = Array.from(map.entries());
-  
-  // 排序：买盘从高到低，卖盘从低到高
-  entries.sort((a, b) => {
-    const cmp = comparePrices(a[0], b[0]);
-    return isBids ? -cmp : cmp;
+function getSortedSnapshot(limit: number) {
+  const bids = Array.from(state.bids.entries())
+    .sort((a, b) => -comparePrices(a[0], b[0]))
+    .slice(0, limit);
+  const asks = Array.from(state.asks.entries())
+    .sort((a, b) => comparePrices(a[0], b[0]))
+    .slice(0, limit);
+  return { bids, asks };
+}
+
+function emitUpdate(force = false) {
+  if (!state.symbol) return;
+
+  const now = Date.now();
+  if (!force && now - state.lastEmitTime < CONFIG.EMIT_THROTTLE_MS) return;
+
+  const { bids, asks } = getSortedSnapshot(CONFIG.OUTPUT_LIMIT);
+
+  post({
+    type: 'ORDERBOOK_UPDATE',
+    payload: {
+      symbol: state.symbol,
+      lastUpdateId: state.lastUpdateId,
+      bids,
+      asks,
+      syncStatus: state.syncStatus,
+      bufferSize: state.buffer.length,
+    },
   });
 
-  return entries;
+  state.dirty = false;
+  state.lastEmitTime = now;
 }
 
-/**
- * 计算订单簿统计数据
- */
-function calculateStats(
-  bids: OrderBookItem[],
-  asks: OrderBookItem[],
-  levels: number
-): { bidTotal: string; askTotal: string; imbalance: number } {
-  let bidTotal = 0;
-  let askTotal = 0;
-
-  for (let i = 0; i < Math.min(levels, bids.length); i++) {
-    bidTotal += parseFloat(bids[i][1]);
+function resetState(keepSymbol: boolean) {
+  state.lastUpdateId = 0;
+  state.bids.clear();
+  state.asks.clear();
+  state.buffer = [];
+  state.dirty = false;
+  state.lastEmitTime = 0;
+  if (!keepSymbol) {
+    state.symbol = null;
+    state.syncStatus = 'uninitialized';
+  } else {
+    state.syncStatus = 'buffering';
   }
-
-  for (let i = 0; i < Math.min(levels, asks.length); i++) {
-    askTotal += parseFloat(asks[i][1]);
-  }
-
-  const totalVolume = bidTotal + askTotal;
-  const imbalance = totalVolume > 0 ? (bidTotal - askTotal) / totalVolume : 0;
-
-  return {
-    bidTotal: bidTotal.toFixed(8),
-    askTotal: askTotal.toFixed(8),
-    imbalance,
-  };
+  emitStatus();
 }
 
-// 处理消息
-self.onmessage = (e: MessageEvent<WorkerMessage>) => {
-  const { type, payload } = e.data;
+function gapDetected(expected: number, got: number) {
+  if (!state.symbol) return;
 
-  switch (type) {
-    case 'merge': {
-      const { currentBids, currentAsks, updateBids, updateAsks, limit } = payload;
-      
-      const startTime = performance.now();
-      
-      const newBids = mergeDepth(currentBids, updateBids, true).slice(0, limit);
-      const newAsks = mergeDepth(currentAsks, updateAsks, false).slice(0, limit);
+  post({
+    type: 'GAP_DETECTED',
+    payload: {
+      symbol: state.symbol,
+      expected,
+      got,
+      lastUpdateId: state.lastUpdateId,
+    },
+  });
 
-      const duration = performance.now() - startTime;
-      
-      self.postMessage({
-        type: 'merge_result',
-        payload: { 
-          bids: newBids, 
-          asks: newAsks,
-          processingTime: duration,
-        },
-      });
-      break;
+  // Keep displaying the last known book, but stop applying deltas until re-synced.
+  // Continue buffering new deltas for the next snapshot.
+  setSyncStatus('gap_detected');
+}
+
+function bufferDelta(delta: DepthDelta) {
+  state.buffer.push(delta);
+  if (state.buffer.length > CONFIG.MAX_BUFFER_SIZE) {
+    state.buffer.splice(0, state.buffer.length - CONFIG.MAX_BUFFER_SIZE);
+  }
+}
+
+function tryAlignFromBuffer() {
+  if (!state.symbol) return;
+  if (state.lastUpdateId <= 0) return;
+
+  // Drop outdated buffered events
+  state.buffer = state.buffer.filter((evt) => evt.u > state.lastUpdateId);
+
+  const expectedStart = state.lastUpdateId + 1;
+  const firstIdx = state.buffer.findIndex(
+    (evt) => evt.U <= expectedStart && evt.u >= expectedStart
+  );
+
+  if (firstIdx === -1) {
+    // Still waiting for the first matching event.
+    return;
+  }
+
+  const toProcess = state.buffer.slice(firstIdx);
+  state.buffer = [];
+
+  // Apply the first matching event + subsequent strictly continuous events.
+  let currentLast = state.lastUpdateId;
+  for (let i = 0; i < toProcess.length; i++) {
+    const evt = toProcess[i];
+    if (evt.u <= currentLast) continue;
+
+    if (evt.U > currentLast + 1) {
+      // Gap encountered while syncing; keep remaining events buffered for next snapshot.
+      gapDetected(currentLast + 1, evt.U);
+      state.buffer = toProcess.slice(i);
+      return;
     }
 
-    case 'sort': {
-      const { data, isBids, limit } = payload;
-      const sorted = [...data].sort((a, b) => {
-        const cmp = comparePrices(a[0], b[0]);
-        return isBids ? -cmp : cmp;
-      }).slice(0, limit);
+    mergeUpdates(state.bids, evt.b);
+    mergeUpdates(state.asks, evt.a);
+    currentLast = evt.u;
+  }
 
-      self.postMessage({
-        type: 'sort_result',
-        payload: { data: sorted },
-      });
-      break;
+  state.lastUpdateId = currentLast;
+  setSyncStatus('synchronized');
+  state.dirty = true;
+  emitUpdate(true);
+}
+
+function applyDeltaStrict(delta: DepthDelta) {
+  if (delta.u <= state.lastUpdateId) return; // old event
+
+  const expected = state.lastUpdateId + 1;
+  if (delta.U !== expected) {
+    gapDetected(expected, delta.U);
+    bufferDelta(delta);
+    return;
+  }
+
+  mergeUpdates(state.bids, delta.b);
+  mergeUpdates(state.asks, delta.a);
+  state.lastUpdateId = delta.u;
+  state.dirty = true;
+}
+
+function handleSnapshot(snapshot: OrderBookSnapshot) {
+  if (!state.symbol) return;
+  if (normalizeSymbol(snapshot.symbol) !== state.symbol) return;
+
+  // Replace orderbook with snapshot (fast first paint).
+  state.bids.clear();
+  state.asks.clear();
+  for (const [p, q] of snapshot.bids) state.bids.set(p, q);
+  for (const [p, q] of snapshot.asks) state.asks.set(p, q);
+  state.lastUpdateId = snapshot.lastUpdateId;
+
+  setSyncStatus('syncing');
+  state.dirty = true;
+  emitUpdate(true);
+
+  // Attempt to align buffered deltas.
+  tryAlignFromBuffer();
+}
+
+function handleDelta(delta: DepthDelta) {
+  if (!state.symbol) return;
+  if (normalizeSymbol(delta.symbol) !== state.symbol) return;
+
+  // If we are in gap_detected, we buffer until a fresh snapshot arrives.
+  if (state.syncStatus === 'gap_detected' || state.syncStatus === 'buffering') {
+    bufferDelta(delta);
+    return;
+  }
+
+  if (state.syncStatus === 'uninitialized') {
+    setSyncStatus('buffering');
+    bufferDelta(delta);
+    return;
+  }
+
+  if (state.syncStatus === 'syncing') {
+    bufferDelta(delta);
+    tryAlignFromBuffer();
+    return;
+  }
+
+  if (state.syncStatus === 'synchronized') {
+    applyDeltaStrict(delta);
+    return;
+  }
+}
+
+// Throttled emit loop
+setInterval(() => {
+  if (!state.dirty) return;
+  emitUpdate(false);
+}, 20);
+
+self.onmessage = (e: MessageEvent<MainToWorkerMessage>) => {
+  const msg = e.data;
+
+  switch (msg.type) {
+    case 'RESET': {
+      resetState(true);
+      return;
     }
-
-    case 'calculate_stats': {
-      const { bids, asks, levels } = payload;
-      const stats = calculateStats(bids, asks, levels);
-
-      self.postMessage({
-        type: 'stats_result',
-        payload: stats,
-      });
-      break;
+    case 'SET_SYMBOL': {
+      const sym = normalizeSymbol(msg.payload.symbol);
+      state.symbol = sym;
+      resetState(true);
+      setSyncStatus('buffering');
+      return;
+    }
+    case 'INIT_SNAPSHOT': {
+      handleSnapshot(msg.payload);
+      return;
+    }
+    case 'DEPTH_DELTA': {
+      handleDelta(msg.payload);
+      return;
+    }
+    case 'WS_STATUS': {
+      // When reconnected after a disconnect, we should re-sync from a fresh snapshot.
+      // Main thread controls snapshot fetching; worker just switches to buffering mode.
+      if (!state.symbol) return;
+      if (msg.payload.status === 'disconnected' || msg.payload.status === 'reconnecting') {
+        setSyncStatus('gap_detected');
+        return;
+      }
+      if (msg.payload.status === 'connected' && state.syncStatus === 'gap_detected') {
+        setSyncStatus('buffering');
+      }
+      return;
     }
   }
 };

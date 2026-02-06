@@ -13,24 +13,25 @@ interface OrderBookTooltipProps {
 }
 
 export const OrderBookTooltip = memo(function OrderBookTooltip({ data, position }: OrderBookTooltipProps) {
-  if (!data || !position) return null;
-
-  const { price, avgPrice, totalBase, totalQuote, type } = data;
-
   const formattedStats = useMemo(() => {
+    if (!data) return null;
     return {
-      avg: new Decimal(avgPrice).toFixed(2),
-      base: new Decimal(totalBase).toFixed(5), // 稍微多一点精度
-      quote: new Decimal(totalQuote).toFixed(2),
+      avg: new Decimal(data.avgPrice).toFixed(2),
+      base: new Decimal(data.totalBase).toFixed(5), // 稍微多一点精度
+      quote: new Decimal(data.totalQuote).toFixed(2),
     };
-  }, [avgPrice, totalBase, totalQuote]);
+  }, [data]);
+
+  if (!data || !position || !formattedStats) return null;
+
+  const { price, type } = data;
 
   // 根据在屏幕的位置调整 tooltip 显示方向，防止溢出屏幕
   // 简单起见，默认显示在鼠标右侧或左侧。这里假设显示在左侧浮动。
   
   return (
     <div
-      className="fixed z-50 pointer-events-none bg-bg-card border border-line shadow-xl rounded-lg p-3 min-w-[200px]"
+      className="fixed z-tooltip pointer-events-none bg-bg-card border border-line-dark shadow-xl rounded-panel p-3 min-w-[200px]"
       style={{
         left: position.x - 220, // 默认显示在左侧
         top: position.y - 60,   //稍微向上偏移
@@ -45,15 +46,15 @@ export const OrderBookTooltip = memo(function OrderBookTooltip({ data, position 
       
       <div className="space-y-1.5 text-xs">
         <div className="flex justify-between">
-          <span className="text-text-tertiary">Avg Price:</span>
+          <span className="text-text-tertiary">均价:</span>
           <span className="text-text-primary font-mono">{formattedStats.avg}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-text-tertiary">Total BTC:</span>
+          <span className="text-text-tertiary">累计数量:</span>
           <span className="text-text-primary font-mono">{formattedStats.base}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-text-tertiary">Total USDT:</span>
+          <span className="text-text-tertiary">累计金额:</span>
           <span className="text-text-primary font-mono">{formattedStats.quote}</span>
         </div>
       </div>

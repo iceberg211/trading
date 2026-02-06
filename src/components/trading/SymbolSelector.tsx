@@ -38,9 +38,9 @@ export function SymbolSelector() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 hover:bg-bg-hover px-2 py-1 rounded transition-colors group"
+        className="flex items-center gap-2 hover:bg-bg-soft/60 px-2 h-7 rounded-sm transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
       >
-        <span className="font-heading text-lg font-bold text-text-primary group-hover:text-accent transition-colors">
+        <span className="font-heading text-base font-bold text-text-primary group-hover:text-accent transition-colors">
           {currentSymbol.baseAsset}/{currentSymbol.quoteAsset}
         </span>
         <svg
@@ -56,7 +56,7 @@ export function SymbolSelector() {
       {isOpen && (
         <Card
           noPadding
-          className="absolute left-0 top-full mt-2 min-w-[220px] z-[70] bg-bg-card border-line shadow-xl max-h-64 overflow-y-auto"
+          className="absolute left-0 top-full mt-2 min-w-[220px] z-[70] shadow-xl max-h-64 overflow-y-auto"
         >
           <div className="py-1">
             {POPULAR_SYMBOLS.map((item) => (

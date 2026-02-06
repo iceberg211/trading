@@ -3,18 +3,25 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { symbolAtom } from '@/features/chart/atoms/klineAtom';
 import {
   orderBookAtom,
+  initialOrderBookState,
   orderBookLoadingAtom,
   orderBookErrorAtom,
   orderBookSyncStatusAtom,
   orderBookGapCountAtom,
+  orderBookBufferSizeAtom,
+  orderBookLastGapAtom,
 } from '../atoms/orderBookAtom';
 import { binanceApi } from '@/services/api/binance';
-import { useTradingEngine } from '@/hooks/useTradingEngine';
-import { runtimeConfig } from '@/core/config/runtime';
+import { marketDataHub } from '@/core/gateway';
+import { useOrderBookEngine } from '@/hooks/useOrderBookEngine';
+import type { HubWsStatus } from '@/workers/orderbookEngine.types';
 
 /**
- * 订单簿数据管理 Hook (Refactored for Web Worker)
- * 逻辑已迁移至 src/workers/tradingEngine.worker.ts
+ * 订单簿数据管理 Hook
+ *
+ * 目标：
+ * - WebSocket 连接统一由 MarketDataHub 管理（单 WS）
+ * - Worker 仅负责订单簿协议与计算（快照+增量对齐、gap 检测、节流输出）
  */
 export function useOrderBook() {
   const symbol = useAtomValue(symbolAtom);
@@ -23,21 +30,38 @@ export function useOrderBook() {
   const [error, setError] = useAtom(orderBookErrorAtom);
   const [syncStatus, setSyncStatus] = useAtom(orderBookSyncStatusAtom);
   const setGapCount = useSetAtom(orderBookGapCountAtom);
+  const setBufferSize = useSetAtom(orderBookBufferSizeAtom);
+  const setLastGap = useSetAtom(orderBookLastGapAtom);
   
-  // 使用新的 Trading Engine Hook
-  const engine = useTradingEngine();
+  const { api: engine } = useOrderBookEngine();
   const engineRef = useRef(engine);
   engineRef.current = engine;
   
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadRequestIdRef = useRef(0);
+  const latestSymbolRef = useRef(symbol);
+  const prevWsStatusRef = useRef<HubWsStatus>('disconnected');
+
+  useEffect(() => {
+    latestSymbolRef.current = symbol;
+    // invalidate previous snapshot requests on symbol change
+    loadRequestIdRef.current += 1;
+  }, [symbol]);
 
   // 获取快照并初始化 Worker
   const initOrderBook = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     try {
       console.log('[OrderBook] Fetching snapshot for', symbol);
+      setSyncStatus('syncing');
       const snapshot = await binanceApi.getOrderBook(symbol, 1000);
+
+      // ignore stale snapshot
+      if (requestId !== loadRequestIdRef.current) return;
+      if (latestSymbolRef.current !== symbol) return;
       
       engineRef.current.initSnapshot({
+        symbol,
         lastUpdateId: snapshot.lastUpdateId,
         bids: snapshot.bids,
         asks: snapshot.asks,
@@ -45,6 +69,7 @@ export function useOrderBook() {
       
       console.log('[OrderBook] Snapshot sent to worker, lastUpdateId:', snapshot.lastUpdateId);
     } catch (err) {
+      if (requestId !== loadRequestIdRef.current) return;
       console.error('[OrderBook] Snapshot failed', err);
       setError('初始化订单簿失败');
       setSyncStatus('uninitialized');
@@ -53,49 +78,99 @@ export function useOrderBook() {
   }, [symbol, setError, setSyncStatus, setLoading]);
 
   useEffect(() => {
-    // Wait for engine to be ready
-    if (!engine.isReady) {
-      console.log('[OrderBook] Waiting for engine to be ready...');
-      return;
-    }
-
     setLoading(true);
     setSyncStatus('syncing');
     setError(null);
+    setOrderBook(initialOrderBookState);
+    setBufferSize(0);
+    setLastGap(null);
 
     // 1. 注册回调
     engine.registerCallbacks({
-      onOrderBookUpdate: (data) => {
+      onUpdate: (data) => {
         setOrderBook({
           lastUpdateId: data.lastUpdateId,
           bids: data.bids,
           asks: data.asks,
         });
-        setSyncStatus('synchronized');
+
+        setBufferSize(data.bufferSize);
+
+        // map engine status to UI status
+        if (data.syncStatus === 'synchronized') {
+          setSyncStatus('synchronized');
+        } else if (data.syncStatus === 'gap_detected') {
+          setSyncStatus('gap_detected');
+        } else if (data.syncStatus === 'uninitialized') {
+          setSyncStatus('uninitialized');
+        } else {
+          // buffering / syncing
+          setSyncStatus('syncing');
+        }
         setLoading(false);
       },
-      onStatusChange: (status) => {
-        console.log('[OrderBook] Worker Status:', status);
-        if (status === 'disconnected') {
-           setSyncStatus('gap_detected');
-        }
+      onStatus: (status) => {
+        setBufferSize(status.bufferSize);
       },
-      onGapDetected: () => {
+      onGapDetected: (gap) => {
         setSyncStatus('gap_detected');
         setGapCount(c => c + 1);
-        // Worker automatically stops syncing. We need to re-init.
+        setLastGap({
+          expected: gap.expected,
+          got: gap.got,
+          lastUpdateId: gap.lastUpdateId,
+          time: Date.now(),
+        });
+
+        // debounce snapshot reload
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }
         reconnectTimeoutRef.current = setTimeout(() => {
           initOrderBook();
-        }, 1000);
-      }
+        }, 300);
+      },
     });
 
-    // 2. 连接 & 订阅
-    engine.connect(runtimeConfig.wsBase);
-    engine.subscribe(symbol);
+    // 2. 设置 symbol 并订阅 WS（由 MarketDataHub 管理连接）
+    engine.setSymbol(symbol);
+
+    const unsubscribe = marketDataHub.subscribe('depth', symbol);
+    const unregister = marketDataHub.onMessage('depth', (msg: any) => {
+      if (!msg || msg.e !== 'depthUpdate') return;
+
+      const msgSymbol = (msg.s || '').toUpperCase();
+      if (!msgSymbol || msgSymbol !== symbol.toUpperCase()) return;
+
+      engine.pushDelta({
+        symbol: msgSymbol,
+        U: msg.U,
+        u: msg.u,
+        b: msg.b,
+        a: msg.a,
+        eventTime: msg.E,
+      });
+    });
+
+    const unregisterStatus = marketDataHub.onStatusChange((status) => {
+      engine.setWsStatus(status as HubWsStatus);
+
+      const prev = prevWsStatusRef.current;
+      prevWsStatusRef.current = status as HubWsStatus;
+
+      // When the hub disconnects, show reconnecting.
+      if (status === 'disconnected' || status === 'reconnecting') {
+        setSyncStatus('gap_detected');
+      }
+
+      // On reconnect (or initial connect), re-sync from a fresh snapshot.
+      // Include 'connecting' as a "not connected" state to handle initial page load
+      const wasNotConnected = prev === 'disconnected' || prev === 'reconnecting' || prev === 'connecting';
+      const isNowConnected = status === 'connected';
+      if (wasNotConnected && isNowConnected) {
+        initOrderBook();
+      }
+    });
 
     // 3. 获取快照
     initOrderBook();
@@ -104,8 +179,11 @@ export function useOrderBook() {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+      unsubscribe();
+      unregister();
+      unregisterStatus();
     };
-  }, [symbol, engine.isReady, initOrderBook, setOrderBook, setLoading, setSyncStatus, setError, setGapCount, engine]);
+  }, [symbol, initOrderBook, setOrderBook, setLoading, setSyncStatus, setError, setGapCount, setBufferSize, setLastGap, engine]);
 
   return {
     orderBook,

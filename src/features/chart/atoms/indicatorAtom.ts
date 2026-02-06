@@ -11,7 +11,10 @@ import { calculateMA, calculateEMA } from '../utils/chartTransformers';
 import { calculateBOLL } from '../indicators/algorithms/boll';
 import { calculateMACD } from '../indicators/algorithms/macd';
 import { calculateRSI } from '../indicators/algorithms/rsi';
-import type { LineData, Time } from 'lightweight-charts';
+import { calculateKDJ } from '../indicators/algorithms/kdj';
+import { calculateOBV } from '../indicators/algorithms/obv';
+import { calculateWR } from '../indicators/algorithms/wr';
+import type { LineData, Time, WhitespaceData, HistogramData } from 'lightweight-charts';
 
 // 指标配置
 export const INDICATOR_CONFIG = {
@@ -20,27 +23,36 @@ export const INDICATOR_CONFIG = {
   boll: { period: 20, stdDev: 2 },
   macd: { fast: 12, slow: 26, signal: 9 },
   rsi: { period: 14 },
+  kdj: { period: 9, kPeriod: 3, dPeriod: 3 },
+  wr: { period: 14 },
 } as const;
 
 // 指标数据类型
 export interface IndicatorCache {
   // 主图指标 (LineData 格式，可直接用于 lightweight-charts)
-  ma7: LineData[];
-  ma25: LineData[];
-  ma99: LineData[];
-  ema7: LineData[];
-  ema25: LineData[];
-  bollUpper: LineData[];
-  bollMiddle: LineData[];
-  bollLower: LineData[];
+  ma7: Array<LineData | WhitespaceData>;
+  ma25: Array<LineData | WhitespaceData>;
+  ma99: Array<LineData | WhitespaceData>;
+  ema7: Array<LineData | WhitespaceData>;
+  ema25: Array<LineData | WhitespaceData>;
+  bollUpper: Array<LineData | WhitespaceData>;
+  bollMiddle: Array<LineData | WhitespaceData>;
+  bollLower: Array<LineData | WhitespaceData>;
   
   // 副图指标
   macd: {
-    macdLine: LineData[];
-    signalLine: LineData[];
-    histogram: { time: Time; value: number; color: string }[];
+    macdLine: Array<LineData | WhitespaceData>;
+    signalLine: Array<LineData | WhitespaceData>;
+    histogram: Array<HistogramData | WhitespaceData>;
   };
-  rsi: LineData[];
+  rsi: Array<LineData | WhitespaceData>;
+  kdj: {
+    kLine: Array<LineData | WhitespaceData>;
+    dLine: Array<LineData | WhitespaceData>;
+    jLine: Array<LineData | WhitespaceData>;
+  };
+  obv: Array<LineData | WhitespaceData>;
+  wr: Array<LineData | WhitespaceData>;
 }
 
 /**
@@ -80,35 +92,81 @@ export const indicatorCacheAtom = atom<IndicatorCache | null>((get) => {
   
   // RSI 计算
   const rsiRaw = calculateRSI(klineData, INDICATOR_CONFIG.rsi.period);
+  const kdjRaw = calculateKDJ(
+    klineData,
+    INDICATOR_CONFIG.kdj.period,
+    INDICATOR_CONFIG.kdj.kPeriod,
+    INDICATOR_CONFIG.kdj.dPeriod
+  );
+  const obvRaw = calculateOBV(klineData);
+  const wrRaw = calculateWR(klineData, INDICATOR_CONFIG.wr.period);
 
-  // 转换为 LineData 格式 (时间已经是秒，无需转换)
-  const toLineData = (data: { time: number; value: number }[]): LineData[] =>
-    data.map((d) => ({ time: d.time as Time, value: d.value }));
+  const times: Time[] = klineData.map((d) => d.time as Time);
+
+  const alignLineSeries = (
+    data: Array<{ time: number; value: number }>
+  ): Array<LineData | WhitespaceData> => {
+    const map = new Map<number, number>();
+    for (const item of data) {
+      map.set(item.time, item.value);
+    }
+    return times.map((t) => {
+      const value = map.get(t as number);
+      if (value === undefined) return { time: t };
+      return { time: t, value };
+    });
+  };
+
+  const alignHistogramSeries = (
+    data: Array<{ time: number; value: number; color: string }>
+  ): Array<HistogramData | WhitespaceData> => {
+    const map = new Map<number, { value: number; color: string }>();
+    for (const item of data) {
+      map.set(item.time, { value: item.value, color: item.color });
+    }
+    return times.map((t) => {
+      const item = map.get(t as number);
+      if (!item) return { time: t };
+      return { time: t, value: item.value, color: item.color };
+    });
+  };
 
   return {
     // 主图指标
-    ma7: toLineData(ma7Raw),
-    ma25: toLineData(ma25Raw),
-    ma99: toLineData(ma99Raw),
-    ema7: toLineData(ema7Raw),
-    ema25: toLineData(ema25Raw),
-    bollUpper: bollRaw.map((d) => ({ time: d.time as Time, value: d.upper })),
-    bollMiddle: bollRaw.map((d) => ({ time: d.time as Time, value: d.middle })),
-    bollLower: bollRaw.map((d) => ({ time: d.time as Time, value: d.lower })),
+    ma7: alignLineSeries(ma7Raw),
+    ma25: alignLineSeries(ma25Raw),
+    ma99: alignLineSeries(ma99Raw),
+    ema7: alignLineSeries(ema7Raw),
+    ema25: alignLineSeries(ema25Raw),
+    bollUpper: alignLineSeries(bollRaw.map((d) => ({ time: d.time, value: d.upper }))),
+    bollMiddle: alignLineSeries(bollRaw.map((d) => ({ time: d.time, value: d.middle }))),
+    bollLower: alignLineSeries(bollRaw.map((d) => ({ time: d.time, value: d.lower }))),
     
     // MACD 副图
     macd: {
-      macdLine: macdRaw.map((d) => ({ time: d.time as Time, value: d.macd })),
-      signalLine: macdRaw.map((d) => ({ time: d.time as Time, value: d.signal })),
-      histogram: macdRaw.map((d) => ({
-        time: d.time as Time,
-        value: d.histogram,
-        color: d.histogram >= 0 ? '#0ECB81' : '#F6465D',
-      })),
+      macdLine: alignLineSeries(macdRaw.map((d) => ({ time: d.time, value: d.macd }))),
+      signalLine: alignLineSeries(macdRaw.map((d) => ({ time: d.time, value: d.signal }))),
+      histogram: alignHistogramSeries(
+        macdRaw.map((d) => ({
+          time: d.time,
+          value: d.histogram,
+          color: d.histogram >= 0 ? '#0ECB81' : '#F6465D',
+        }))
+      ),
     },
     
     // RSI 副图
-    rsi: rsiRaw.map((d) => ({ time: d.time as Time, value: d.value })),
+    rsi: alignLineSeries(rsiRaw.map((d) => ({ time: d.time, value: d.value }))),
+    // KDJ 副图
+    kdj: {
+      kLine: alignLineSeries(kdjRaw.map((d) => ({ time: d.time, value: d.k }))),
+      dLine: alignLineSeries(kdjRaw.map((d) => ({ time: d.time, value: d.d }))),
+      jLine: alignLineSeries(kdjRaw.map((d) => ({ time: d.time, value: d.j }))),
+    },
+    // OBV 副图
+    obv: alignLineSeries(obvRaw.map((d) => ({ time: d.time, value: d.value }))),
+    // WR 副图
+    wr: alignLineSeries(wrRaw.map((d) => ({ time: d.time, value: d.value }))),
   };
 });
 

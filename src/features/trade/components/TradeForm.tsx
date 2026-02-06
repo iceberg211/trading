@@ -15,20 +15,20 @@ function OrderTypeSelector({
   onSelect: (type: OrderType) => void;
 }) {
   const types: { value: OrderType; label: string }[] = [
-    { value: 'limit', label: 'Limit' },
-    { value: 'market', label: 'Market' },
-    { value: 'stop_limit', label: 'Stop-Limit' },
+    { value: 'limit', label: '限价' },
+    { value: 'market', label: '市价' },
+    { value: 'stop_limit', label: '止损限价' },
   ];
   
   return (
-    <div className="flex gap-1 p-1 bg-bg-panel/70 border border-line-dark rounded-lg">
+    <div className="flex gap-1 p-1 bg-bg-panel border border-line-dark rounded-sm">
       {types.map((t) => (
         <button
           key={t.value}
           onClick={() => onSelect(t.value)}
-          className={`flex-1 py-1.5 text-xs rounded-md transition-all ${
+          className={`flex-1 h-7 text-xs rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             selected === t.value
-              ? 'bg-bg-soft text-text-primary font-medium shadow-sm'
+              ? 'bg-bg-soft text-text-primary font-medium'
               : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-soft/40'
           }`}
         >
@@ -50,14 +50,14 @@ function PercentageButtons({
   const percentages = [25, 50, 75, 100];
   
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-4 gap-1.5">
       {percentages.map((p) => (
         <button
           key={p}
           onClick={() => onSelect(p)}
-          className={`py-1 text-xs rounded border transition-all ${
+          className={`h-7 text-xxs rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             selected === p
-              ? 'border-accent text-accent bg-accent/10'
+              ? 'border-accent/70 text-accent bg-accent/15'
               : 'border-line-dark text-text-secondary hover:text-text-primary hover:bg-bg-soft/40'
           }`}
         >
@@ -107,39 +107,39 @@ export function TradeForm() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-bg-card/90 backdrop-blur">
+    <div className="flex flex-col h-full bg-bg-card">
       {/* Header Tabs - Buy/Sell */}
-      <div className="flex border-b border-line-dark bg-bg-soft/70">
+      <div className="flex border-b border-line-dark bg-bg-panel h-8">
         <button
           onClick={() => setSide('buy')}
-          className={`flex-1 py-3 text-xs font-semibold uppercase tracking-[0.22em] transition-colors border-b-2 ${
+          className={`flex-1 text-xs font-semibold transition-colors border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             form.side === 'buy' 
               ? 'border-up text-up bg-up-bg/50' 
               : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
-          Buy
+          买入
         </button>
         <button
           onClick={() => setSide('sell')}
-          className={`flex-1 py-3 text-xs font-semibold uppercase tracking-[0.22em] transition-colors border-b-2 ${
+          className={`flex-1 text-xs font-semibold transition-colors border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             form.side === 'sell' 
               ? 'border-down text-down bg-down-bg/50' 
               : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
-          Sell
+          卖出
         </button>
       </div>
 
       {/* Form Body */}
-      <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+      <div className="flex-1 p-3 space-y-3 overflow-y-auto">
         {/* Order Type Selector */}
         <OrderTypeSelector selected={form.type} onSelect={setType} />
 
         {/* Balance */}
         <div className="flex justify-between text-xs">
-          <span className="text-text-secondary">Avail.</span>
+          <span className="text-text-secondary">可用</span>
           <span className="text-text-primary font-mono font-medium">
             {new Decimal(availableBalance).toFixed(form.side === 'buy' ? 2 : 6)}{' '}
             <span className="text-text-tertiary">{balanceUnit}</span>
@@ -149,14 +149,14 @@ export function TradeForm() {
         {/* Stop Price Input (only for stop-limit) */}
         {isStopLimit && (
           <div className="space-y-1">
-            <label className="text-xs text-text-tertiary">Stop Price</label>
+            <label className="text-xs text-text-tertiary">止损价</label>
             <div className="relative group">
               <input
                 type="text"
                 value={form.stopPrice}
                 onChange={(e) => setStopPrice(e.target.value)}
-                className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
-                placeholder="Trigger price"
+                className="w-full h-8 bg-bg-soft/80 text-text-primary px-3 text-xs rounded-sm border border-line-dark outline-none font-mono transition-colors hover:border-line-light focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/35"
+                placeholder="触发价格"
               />
               <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
             </div>
@@ -167,14 +167,14 @@ export function TradeForm() {
         {!isMarketOrder && (
           <div className="space-y-1">
             <label className="text-xs text-text-tertiary">
-              {isStopLimit ? 'Limit Price' : 'Price'}
+              {isStopLimit ? '限价' : '价格'}
             </label>
             <div className="relative group">
               <input
                 type="text"
                 value={form.price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
+                className="w-full h-8 bg-bg-soft/80 text-text-primary px-3 text-xs rounded-sm border border-line-dark outline-none font-mono transition-colors hover:border-line-light focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/35"
                 placeholder="0.00"
               />
               <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">USDT</span>
@@ -185,22 +185,22 @@ export function TradeForm() {
         {/* Market Price Indicator */}
         {isMarketOrder && (
           <div className="space-y-1">
-            <label className="text-xs text-text-tertiary">Price</label>
-            <div className="bg-bg-soft/70 text-text-secondary px-3 py-2 text-sm rounded font-mono border border-line-dark">
-              Market Price
+            <label className="text-xs text-text-tertiary">价格</label>
+            <div className="bg-bg-soft/70 text-text-secondary px-3 h-8 flex items-center text-xs rounded-sm font-mono border border-line-dark">
+              市价
             </div>
           </div>
         )}
 
         {/* Amount Input */}
         <div className="space-y-1">
-          <label className="text-xs text-text-tertiary">Amount</label>
+          <label className="text-xs text-text-tertiary">数量</label>
           <div className="relative group">
             <input
               type="text"
               value={form.amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
+              className="w-full h-8 bg-bg-soft/80 text-text-primary px-3 text-xs rounded-sm border border-line-dark outline-none font-mono transition-colors hover:border-line-light focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/35"
               placeholder="0.00"
             />
             <span className="absolute right-3 top-2 text-xs text-text-tertiary pointer-events-none">BTC</span>
@@ -215,13 +215,13 @@ export function TradeForm() {
 
         {/* Total Input */}
         <div className="space-y-1">
-          <label className="text-xs text-text-tertiary">Total</label>
+          <label className="text-xs text-text-tertiary">金额</label>
           <div className="relative group">
             <input
               type="text"
               value={form.total}
               onChange={(e) => setTotal(e.target.value)}
-              className="w-full bg-bg-soft/80 text-text-primary px-3 py-2 text-sm rounded border border-line-dark focus:border-accent outline-none font-mono transition-colors hover:border-line-light focus:ring-1 focus:ring-accent/40"
+              className="w-full h-8 bg-bg-soft/80 text-text-primary px-3 text-xs rounded-sm border border-line-dark outline-none font-mono transition-colors hover:border-line-light focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/35"
               placeholder="0.00"
               disabled={isMarketOrder}
             />
@@ -231,18 +231,18 @@ export function TradeForm() {
       </div>
 
       {/* Submit Button */}
-      <div className="p-4 pt-3 border-t border-line-dark bg-bg-panel/50">
+      <div className="p-3 border-t border-line-dark bg-bg-panel">
         <button
           disabled={!validation.isValid || submitting}
           onClick={handlePreSubmit}
-          className={`w-full py-3 rounded text-sm font-bold text-white transition-all transform active:scale-[0.98] ${
+          className={`w-full h-9 rounded-sm text-sm font-bold text-white transition-colors active:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
             form.side === 'buy' 
-              ? 'bg-up hover:bg-up-light shadow-lg shadow-up/20' 
-              : 'bg-down hover:bg-down-light shadow-lg shadow-down/20'
+              ? 'bg-up hover:bg-up-light' 
+              : 'bg-down hover:bg-down-light'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          {submitting ? 'Processing...' : (
-            form.side === 'buy' ? `Buy BTC` : `Sell BTC`
+          {submitting ? '处理中…' : (
+            form.side === 'buy' ? '买入 BTC' : '卖出 BTC'
           )}
         </button>
       </div>

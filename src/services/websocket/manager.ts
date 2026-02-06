@@ -7,6 +7,7 @@ interface WebSocketManagerOptions {
 }
 
 type MessageHandler = (data: any) => void;
+type StatusHandler = (status: WebSocketStatus) => void;
 
 /**
  * WebSocket 连接管理器
@@ -20,8 +21,10 @@ export class WebSocketManager {
   private maxReconnectAttempts: number;
   private reconnectAttempts: number = 0;
   private messageHandlers: Set<MessageHandler> = new Set();
+  private statusHandlers: Set<StatusHandler> = new Set();
   private heartbeatTimer: number | null = null;
   private reconnectTimer: number | null = null;
+  private manuallyClosed = false;
 
   constructor(options: WebSocketManagerOptions) {
     this.url = options.url;
@@ -37,7 +40,8 @@ export class WebSocketManager {
       return;
     }
 
-    this.status = 'connecting';
+    this.manuallyClosed = false;
+    this.setStatus('connecting');
     console.log('WebSocket 连接中...', this.url);
 
     try {
@@ -56,7 +60,12 @@ export class WebSocketManager {
   /**
    * 断开连接
    */
-  disconnect(): void {
+  disconnect(options?: { manual?: boolean }): void {
+    const manual = options?.manual ?? true;
+    if (manual) {
+      this.manuallyClosed = true;
+    }
+
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
@@ -72,7 +81,7 @@ export class WebSocketManager {
       this.ws = null;
     }
 
-    this.status = 'disconnected';
+    this.setStatus('disconnected');
     this.reconnectAttempts = 0;
   }
 
@@ -106,9 +115,32 @@ export class WebSocketManager {
     return this.status;
   }
 
+  /**
+   * 监听连接状态变化
+   */
+  onStatusChange(handler: StatusHandler): () => void {
+    this.statusHandlers.add(handler);
+    handler(this.status);
+    return () => {
+      this.statusHandlers.delete(handler);
+    };
+  }
+
+  private setStatus(next: WebSocketStatus) {
+    if (this.status === next) return;
+    this.status = next;
+    this.statusHandlers.forEach((h) => {
+      try {
+        h(next);
+      } catch (e) {
+        console.error('[WebSocketManager] status handler error', e);
+      }
+    });
+  }
+
   private handleOpen(): void {
     console.log('WebSocket 已连接');
-    this.status = 'connected';
+    this.setStatus('connected');
     this.reconnectAttempts = 0;
     this.startHeartbeat();
   }
@@ -132,14 +164,16 @@ export class WebSocketManager {
 
   private handleClose(): void {
     console.log('WebSocket 已断开');
-    this.status = 'disconnected';
+    this.setStatus('disconnected');
     
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
 
-    this.scheduleReconnect();
+    if (!this.manuallyClosed) {
+      this.scheduleReconnect();
+    }
   }
 
   private startHeartbeat(): void {
@@ -148,7 +182,7 @@ export class WebSocketManager {
     this.heartbeatTimer = window.setInterval(() => {
       if (this.ws?.readyState !== WebSocket.OPEN) {
         console.warn('心跳检测失败，尝试重连');
-        this.disconnect();
+        this.disconnect({ manual: false });
         this.scheduleReconnect();
       }
     }, 30000); // 30 秒检测一次
@@ -160,7 +194,7 @@ export class WebSocketManager {
       return;
     }
 
-    this.status = 'reconnecting';
+    this.setStatus('reconnecting');
     this.reconnectAttempts++;
 
     console.log(

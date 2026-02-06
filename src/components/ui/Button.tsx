@@ -12,17 +12,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary: 'bg-accent hover:bg-accent-hover text-text-inverse font-medium',
-  secondary: 'bg-bg-soft hover:bg-bg-hover border border-line text-text-primary',
-  ghost: 'hover:bg-bg-hover text-text-secondary',
-  buy: 'bg-up hover:bg-up-light text-white font-bold shadow-lg shadow-up/20',
-  sell: 'bg-down hover:bg-down-light text-white font-bold shadow-lg shadow-down/20',
+  secondary: 'bg-bg-soft hover:bg-bg-hover border border-line-dark text-text-primary',
+  ghost: 'hover:bg-bg-soft/60 text-text-secondary',
+  buy: 'bg-up hover:bg-up-light text-white font-bold',
+  sell: 'bg-down hover:bg-down-light text-white font-bold',
 };
 
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-xs rounded-lg',
-  md: 'px-4 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3 text-base rounded-xl',
+  sm: 'h-7 px-2 text-xs rounded-sm',
+  md: 'h-8 px-3 text-xs rounded-sm',
+  lg: 'h-9 px-4 text-sm rounded-sm',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -32,8 +32,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={`
-          inline-flex items-center justify-center gap-2 transition-all duration-200
+          inline-flex items-center justify-center gap-2 transition-colors duration-150
           disabled:opacity-50 disabled:cursor-not-allowed
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${fullWidth ? 'w-full' : ''}

@@ -6,10 +6,10 @@
 // 图表主题颜色
 export const CHART_COLORS = {
   // 背景与边框
-  background: '#161A1E',
+  background: '#0B0E11',
   textColor: '#848E9C',
-  gridLine: '#2B3139',
-  borderColor: '#2B3139',
+  gridLine: '#1E2329',
+  borderColor: '#1E2329',
   
   // K 线颜色
   upColor: '#0ECB81',
@@ -17,7 +17,7 @@ export const CHART_COLORS = {
   
   // 十字线
   crosshairLine: '#5E6673',
-  crosshairLabel: '#474D57',
+  crosshairLabel: '#1E2329',
   
   // 指标线
   lineChart: '#FCD535',

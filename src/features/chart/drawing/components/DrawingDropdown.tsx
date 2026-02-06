@@ -91,15 +91,16 @@ export function DrawingDropdown({
   const currentTool = TOOLS.find((t) => t.type === activeTool);
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className="relative flex items-center gap-2">
       {/* 主按钮 */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`
-          flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors
+          flex items-center gap-1.5 h-7 px-2 text-xxs rounded-sm transition-colors
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35
           ${activeTool || isOpen
             ? 'bg-accent text-white'
-            : 'text-text-secondary hover:bg-bg-soft hover:text-text-primary'
+            : 'text-text-secondary hover:bg-bg-soft/60 hover:text-text-primary'
           }
         `}
       >
@@ -117,14 +118,14 @@ export function DrawingDropdown({
 
       {/* 绘制状态提示 */}
       {activeTool && (
-        <span className="absolute -bottom-4 left-0 text-[10px] text-accent whitespace-nowrap animate-pulse">
+        <span className="hidden md:inline text-[10px] text-accent whitespace-nowrap">
           {pendingPoint ? '点击第二点' : getToolHint(activeTool)}
         </span>
       )}
 
       {/* 下拉菜单 */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-40 bg-bg-card border border-line-dark rounded-lg shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-40 bg-bg-card border border-line-dark rounded-panel shadow-xl z-tooltip overflow-hidden">
           {/* 工具列表 */}
           <div className="py-1">
             {TOOLS.map(({ type, label, icon }) => (
@@ -135,10 +136,11 @@ export function DrawingDropdown({
                   setIsOpen(false);
                 }}
                 className={`
-                  w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors
+                  w-full flex items-center gap-2 px-3 h-8 text-xs transition-colors
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35
                   ${activeTool === type
                     ? 'bg-accent/20 text-accent'
-                    : 'text-text-secondary hover:bg-bg-soft hover:text-text-primary'
+                    : 'text-text-secondary hover:bg-bg-soft/60 hover:text-text-primary'
                   }
                 `}
               >
@@ -162,9 +164,10 @@ export function DrawingDropdown({
               }}
               disabled={drawingsCount === 0}
               className={`
-                w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors
+                w-full flex items-center gap-2 px-3 h-8 text-xs transition-colors
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35
                 ${drawingsCount > 0
-                  ? 'text-text-secondary hover:bg-bg-soft hover:text-text-primary'
+                  ? 'text-text-secondary hover:bg-bg-soft/60 hover:text-text-primary'
                   : 'text-text-tertiary cursor-not-allowed'
                 }
               `}
@@ -179,7 +182,8 @@ export function DrawingDropdown({
               }}
               disabled={drawingsCount === 0}
               className={`
-                w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors
+                w-full flex items-center gap-2 px-3 h-8 text-xs transition-colors
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35
                 ${drawingsCount > 0
                   ? 'text-down hover:bg-down-bg'
                   : 'text-text-tertiary cursor-not-allowed'

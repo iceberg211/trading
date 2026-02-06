@@ -16,6 +16,31 @@ const MAX_KLINES = 3000;
 const INITIAL_KLINES = 200;
 const LOAD_MORE_KLINES = 200;
 
+function formatKlineError(err: unknown): string {
+  const anyErr = err as any;
+  const status = anyErr?.response?.status as number | undefined;
+  const serverMsg = anyErr?.response?.data?.msg as string | undefined;
+  const networkMsg = anyErr?.message as string | undefined;
+
+  if (status) {
+    if (status === 429) return '请求过于频繁，请稍后再试';
+    if (status === 404) return '交易对或数据源不存在';
+    if (status >= 500) return `数据源异常（HTTP ${status}），请稍后再试`;
+    if (status >= 400) return `请求参数异常（HTTP ${status}）`;
+    return `请求失败（HTTP ${status}）`;
+  }
+
+  if (serverMsg) {
+    return `数据源返回错误：${serverMsg}`;
+  }
+
+  if (networkMsg?.toLowerCase().includes('network')) {
+    return '网络异常，请检查连接或稍后再试';
+  }
+
+  return 'K 线数据加载失败，请稍后再试';
+}
+
 function trimKlines(data: Candle[]): Candle[] {
   if (data.length <= MAX_KLINES) return data;
   return data.slice(-MAX_KLINES);
@@ -74,7 +99,7 @@ export function useKlineData() {
       }
     } catch (err) {
       if (requestId !== loadRequestIdRef.current) return;
-      setError(err instanceof Error ? err.message : '加载数据失败');
+      setError(formatKlineError(err));
     } finally {
       if (requestId === loadRequestIdRef.current) {
         setLoading(false);
@@ -125,6 +150,9 @@ export function useKlineData() {
 
       return olderCandles.length;
     } catch (err) {
+      if (requestId === loadMoreRequestIdRef.current) {
+        setError(`加载更多失败：${formatKlineError(err)}`);
+      }
       console.error('[useKlineData] Failed to load more data:', err);
       return 0;
     } finally {

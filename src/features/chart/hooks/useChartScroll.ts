@@ -79,7 +79,7 @@ export function useChartScroll({
         const timeSinceLastLoad = now - lastLoadMoreTimeRef.current;
 
         if (isAtLeftEdge && timeSinceLastLoad > CHART_THRESHOLDS.loadMoreDebounce) {
-          console.log('[useChartScroll] Loading more data...');
+          console.log('[useChartScroll] 加载更多数据…');
           isLoadingMoreRef.current = true;
           lastLoadMoreTimeRef.current = now;
 

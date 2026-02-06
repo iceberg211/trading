@@ -246,7 +246,7 @@ export const DepthChart = memo(function DepthChart() {
   if (orderBook.bids.length === 0 && orderBook.asks.length === 0) {
     return (
       <div className="h-full flex items-center justify-center text-text-tertiary text-sm">
-        Loading depth data...
+        正在加载深度数据…
       </div>
     );
   }
@@ -264,18 +264,18 @@ export const DepthChart = memo(function DepthChart() {
       {/* Tooltip */}
       {tooltip && (
         <div
-          className="absolute pointer-events-none bg-bg-card border border-line rounded-lg px-3 py-2 text-xs shadow-lg z-10"
+          className="absolute pointer-events-none bg-bg-card border border-line-dark rounded-panel px-3 py-2 text-xs shadow-lg z-tooltip"
           style={{
             left: tooltip.x + 10,
             top: tooltip.y - 60,
             transform: tooltip.x > dimensions.width / 2 ? 'translateX(-100%)' : 'none',
           }}
         >
-          <div className="text-text-tertiary mb-1">Price</div>
+          <div className="text-text-tertiary mb-1">价格</div>
           <div className={`font-mono font-medium ${tooltip.type === 'bid' ? 'text-up' : 'text-down'}`}>
             ${tooltip.price}
           </div>
-          <div className="text-text-tertiary mt-2 mb-1">Total</div>
+          <div className="text-text-tertiary mt-2 mb-1">累计</div>
           <div className="text-text-primary font-mono">{tooltip.total}</div>
         </div>
       )}

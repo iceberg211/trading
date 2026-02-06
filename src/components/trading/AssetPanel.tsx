@@ -119,15 +119,15 @@ export const AssetPanel = memo(function AssetPanel() {
   };
 
   return (
-    <div className="bg-bg-card/90 backdrop-blur border-t border-line-dark">
+    <div className="bg-bg-card border-t border-line-dark">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-bg-soft/50 transition-colors"
+        className="w-full px-3 h-8 flex items-center justify-between hover:bg-bg-soft/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-text-primary">Assets</span>
-          <span className="text-xs text-text-tertiary font-mono">
+          <span className="text-xs font-heading font-medium text-text-primary">资产</span>
+          <span className="text-xxs text-text-tertiary font-mono tabular-nums">
             ≈ ${totalUsdValue.toFixed(2)}
           </span>
         </div>
@@ -145,10 +145,10 @@ export const AssetPanel = memo(function AssetPanel() {
 
       {/* Asset List */}
       {isExpanded && (
-        <div className="px-4 pb-3 space-y-2">
+        <div className="px-3 pb-3 space-y-2">
           {assets.length === 0 ? (
             <div className="py-4 text-center text-text-tertiary text-sm">
-              No assets
+              暂无资产
             </div>
           ) : (
             assets.map((asset) => (
@@ -170,12 +170,15 @@ export const AssetPanel = memo(function AssetPanel() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-mono text-text-primary">
+                  <div className="text-sm font-mono text-text-primary tabular-nums">
                     {new Decimal(asset.available).toFixed(getPrecision(asset.symbol))}
                   </div>
                   {new Decimal(asset.locked).gt(0) && (
-                    <div className="text-[10px] text-yellow-500 font-mono">
-                      🔒 {new Decimal(asset.locked).toFixed(getPrecision(asset.symbol))}
+                    <div className="text-xxs text-yellow-500 font-mono tabular-nums inline-flex items-center gap-1 justify-end">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11V7a4 4 0 10-8 0v4m-1 0h10a2 2 0 012 2v7a2 2 0 01-2 2H3a2 2 0 01-2-2v-7a2 2 0 012-2z" />
+                      </svg>
+                      {new Decimal(asset.locked).toFixed(getPrecision(asset.symbol))}
                     </div>
                   )}
                   <div className="text-xs text-text-tertiary font-mono">
@@ -192,21 +195,21 @@ export const AssetPanel = memo(function AssetPanel() {
               onClick={handleQuickDeposit}
               className="flex-1 py-1.5 text-xs rounded bg-up/10 text-up border border-up/30 hover:bg-up/20 transition-colors"
             >
-              + 10,000 USDT
+              充值 10,000 USDT
             </button>
             {showResetConfirm ? (
               <button
                 onClick={handleReset}
                 className="flex-1 py-1.5 text-xs rounded bg-down/20 text-down border border-down/50 hover:bg-down/30 transition-colors font-medium"
               >
-                Confirm Reset?
+                确认重置？
               </button>
             ) : (
               <button
                 onClick={() => setShowResetConfirm(true)}
                 className="flex-1 py-1.5 text-xs rounded bg-bg-soft/50 text-text-secondary border border-line-dark hover:bg-bg-soft transition-colors"
               >
-                Reset Account
+                重置账户
               </button>
             )}
           </div>
@@ -214,7 +217,7 @@ export const AssetPanel = memo(function AssetPanel() {
           {/* Footer Note */}
           <div className="pt-2">
             <p className="text-[10px] text-text-tertiary text-center">
-              Demo account • Simulated balances • Updated: {new Date().toLocaleTimeString()}
+              演示账户 • 模拟余额 • 更新: {new Date().toLocaleTimeString()}
             </p>
           </div>
         </div>

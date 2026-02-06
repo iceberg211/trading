@@ -6,7 +6,7 @@
 
 import { useState, useCallback } from 'react';
 
-export type SubchartType = 'MACD' | 'RSI' | 'VOL' | null;
+export type SubchartType = 'MACD' | 'RSI' | 'KDJ' | 'OBV' | 'WR' | 'VOL' | null;
 
 export interface SubchartSlot {
   id: string;
